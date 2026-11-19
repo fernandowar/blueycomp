@@ -9,3 +9,7 @@ Compresor VCA VST3 (Windows / macOS) de comportamiento tipo consola SSL E, para 
 - **Makeup**: 0 a +15 dB. Botón **IN** (bypass) y escalera de LEDs de gain reduction (3 / 6 / 10 / 14 / 20 dB).
 
 Compila automático en GitHub Actions junto con Bluey Comp (carpeta `BlueyComp`).
+
+## Tipografías
+
+Michroma y Barlow (SIL Open Font License, ver `Fonts/*_OFL.txt`), incluidas dentro del plugin.

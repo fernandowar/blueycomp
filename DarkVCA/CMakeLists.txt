@@ -35,6 +35,14 @@ juce_add_plugin(DarkVCA
     VST3_CATEGORIES Fx Dynamics
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+juce_add_binary_data(DarkVcaFonts
+    HEADER_NAME "DarkVcaFonts.h"
+    NAMESPACE DarkVcaFontData
+    SOURCES
+        Fonts/Michroma.ttf
+        Fonts/BarlowSemiBold.ttf
+        Fonts/BarlowMedium.ttf)
+
 target_sources(DarkVCA PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
@@ -46,6 +54,7 @@ target_compile_definitions(DarkVCA PUBLIC
 
 target_link_libraries(DarkVCA
     PRIVATE
+        DarkVcaFonts
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

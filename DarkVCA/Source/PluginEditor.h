@@ -3,16 +3,17 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Estética consola SSL E: panel azul marino texturizado, perillas crema con
-// puntero oscuro, escalas de puntos con números, botones grises y escalera de
-// LEDs de gain reduction (3 / 6 / 10 / 14 / 20 dB).
+// Frontal negro cepillado estilo Bluey (bisel, tornillos, título grabado) con
+// perillas estilo SSL (tapa gris metálica, puntero oscuro, escala de puntos
+// blancos) y escalera horizontal de LEDs de gain reduction (3/6/10/14/20 dB).
+// Tipografías incluidas en el plugin: Michroma (títulos) y Barlow (números).
 //==============================================================================
 namespace SslColours
 {
-    static const juce::Colour dot    { 0xff9aa3bb };
-    static const juce::Colour number { 0xffaab2c8 };
-    static const juce::Colour title  { 0xffc4c8d4 };
-    static const juce::Colour cream  { 0xffefede4 };
+    static const juce::Colour dot    { 0xfff0f1f4 };
+    static const juce::Colour number { 0xffe4e6ec };
+    static const juce::Colour title  { 0xffffffff };
+    static const juce::Colour grey   { 0xff8d9098 };
     static const juce::Colour amber  { 0xffffb347 };
 }
 
@@ -63,8 +64,8 @@ private:
     void buildTexture();
     void drawScale (juce::Graphics&, juce::Point<float> c, float dotRadius, float labelRadius,
                     const juce::StringArray& labels, float fontSize);
-    void drawKnobTitle (juce::Graphics&, juce::Point<float> c, float labelRadius,
-                        const juce::String& name, const juce::String& unit);
+    void drawKnobTitle (juce::Graphics&, float cx, float y, const juce::String& name, const juce::String& unit);
+    void drawScrew (juce::Graphics&, juce::Point<float> c);
     void drawLadder (juce::Graphics&);
 
     DarkVcaAudioProcessor& processor;
