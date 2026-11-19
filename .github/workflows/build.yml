@@ -30,20 +30,69 @@ jobs:
         if: runner.os == 'macOS'
         run: codesign --force --deep -s - "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3"
 
-      - name: Package (Windows)
+      - name: Package VST3 zip (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" -DestinationPath "dist/BlueyComp-Windows-VST3.zip"
 
-      - name: Package (macOS)
+      - name: Package VST3 zip (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
           ditto -c -k --keepParent "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" "dist/BlueyComp-macOS-VST3.zip"
 
+      - name: Instalador macOS (.pkg)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          PLUGIN="build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3"
+          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 scripts installer
+          cp -R "$PLUGIN" pkgroot/Library/Audio/Plug-Ins/VST3/
+          cat > scripts/postinstall <<'EOF'
+          #!/bin/bash
+          P="/Library/Audio/Plug-Ins/VST3/Bluey Comp.vst3"
+          xattr -cr "$P"
+          codesign --force --deep -s - "$P" || true
+          exit 0
+          EOF
+          chmod +x scripts/postinstall
+          pkgbuild --root pkgroot --scripts scripts \
+            --identifier com.darkshapestudios.bluey-comp --version 1.0.0 \
+            --install-location / installer/BlueyComp-macOS-Installer.pkg
+
+      - name: Instalador Windows (.exe)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppName=Bluey Comp
+          AppVersion=1.0.0
+          AppPublisher=Dark Shape Studios
+          DefaultDirName={commoncf64}\VST3
+          CreateAppDir=no
+          Uninstallable=no
+          PrivilegesRequired=admin
+          ArchitecturesInstallIn64BitMode=x64compatible
+          OutputDir=installer
+          OutputBaseFilename=BlueyComp-Windows-Installer
+          Compression=lzma
+          [Files]
+          Source: "build\BlueyComp_artefacts\Release\VST3\Bluey Comp.vst3\*"; DestDir: "{commoncf64}\VST3\Bluey Comp.vst3"; Flags: recursesubdirs ignoreversion
+          '@ | Set-Content -Path installer.iss -Encoding ASCII
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
       - uses: actions/upload-artifact@v4
         with:
           name: BlueyComp-${{ matrix.name }}-VST3
           path: dist/*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlueyComp-${{ matrix.name }}-Installer
+          path: installer/*
+          if-no-files-found: warn
