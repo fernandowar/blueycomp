@@ -75,8 +75,6 @@ void DarkVcaAudioProcessor::prepareToPlay (double sr, int)
     sideLoCoeff = onePole (150.0f);
     sideHiCoeff = onePole (1500.0f);
     exLp[0] = exLp[1] = sideLo = sideHi = 0.0f;
-    driveAmt.reset (sr, 0.03);
-    driveAmt.setCurrentAndTargetValue (kDrive);
     depthAmt.reset (sr, 0.03);
     depthAmt.setCurrentAndTargetValue (kDepth);
 
@@ -112,7 +110,6 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         const float thr = thresholdDb.getNextValue();
         const float mk = makeupGain.getNextValue();
         const float m = wetMix.getNextValue();
-        const float dv = driveAmt.getNextValue();
         const float dp = depthAmt.getNextValue();
 
         // Detector enlazado (stereo link): el canal más fuerte manda
@@ -151,12 +148,12 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         peakGr = juce::jmax (peakGr, gr);
 
         const float gain = juce::Decibels::decibelsToGain (-gr) * mk;
-        // Saturación analógica: waveshaper tanh asimétrico (armónicos pares e impares).
-        // DRIVE regula cuánto; además se marca más con más compresión. Cada canal
-        // tiene una pequeña "tolerancia" distinta, como componentes reales.
-        const float drive = 1.0f + 2.5f * dv + 0.07f * gr;
-        const float satMix = 0.1f + 0.8f * dv;
-        static const float biasCh[2] = { 0.12f, 0.16f };
+        // Saturación: tanh casi simétrico (armónicos casi solo impares, H3 > H5), con una
+        // mínima asimetría y tolerancia entre canales para un toque analógico. Ajustada
+        // para parecerse a la curva de armónicos del plugin de referencia del usuario:
+        // H3 ~ -27 dBc a -4 dBFS, -41 a -11, -60 a -21, -80 a -31.
+        const float drive = kSatDrive;
+        static const float biasCh[2] = { 0.004f, 0.006f };
         static const float gainCh[2] = { 1.0f, 0.994f };
 
         float dry[2] { 0.0f, 0.0f }, wet[2] { 0.0f, 0.0f };
@@ -169,7 +166,7 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             const float bias = biasCh[ch];
             const float tb = std::tanh (bias);
             const float shaped = (std::tanh (drive * w + bias) - tb) / (drive * (1.0f - tb * tb));
-            w += satMix * (shaped - w);
+            w = shaped;
 
             // quita el DC que genera la asimetría
             const float y = w - dcX[ch] + dcCoeff * dcY[ch];

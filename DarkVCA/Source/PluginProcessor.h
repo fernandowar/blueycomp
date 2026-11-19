@@ -48,7 +48,7 @@ private:
     // Ajustes fijos
     static constexpr float kRatio    = 3.0f;
     static constexpr float kKneeDb   = 3.0f;
-    static constexpr float kDrive    = 0.5f;  // saturación fija (0..1)
+    static constexpr float kSatDrive = 1.25f; // saturación fija (tanh simétrico, ajustada a la referencia del usuario)
     static constexpr float kDepth    = 0.4f;  // frontalidad + 3D fijos (0..1)
     static constexpr float kRelFixedMs = 100.0f;  // release fijo
     static constexpr float kRelFastMs  = 100.0f;  // etapa rápida del modo Auto
@@ -64,7 +64,7 @@ private:
     float exLp[2] { 0.0f, 0.0f };
     float sideLo = 0.0f, sideHi = 0.0f;
     float exCoeff = 0.3f, sideLoCoeff = 0.02f, sideHiCoeff = 0.2f;
-    juce::SmoothedValue<float> driveAmt, depthAmt;
+    juce::SmoothedValue<float> depthAmt;
 
     juce::SmoothedValue<float> thresholdDb;
     juce::SmoothedValue<float> makeupGain;
