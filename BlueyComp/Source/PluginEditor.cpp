@@ -7,71 +7,86 @@ static juce::Font makeFont (float size, bool bold = true)
     return juce::Font (juce::FontOptions (size, bold ? juce::Font::bold : juce::Font::plain));
 }
 
-//==============================================================================
-void BlueyLookAndFeel::paintKnob (juce::Graphics& g, juce::Rectangle<float> b, float proportion)
+static juce::Point<float> polar (juce::Point<float> c, float angle, float r)
 {
-    const auto c = b.getCentre();
-    const float r = b.getWidth() * 0.5f;
+    return { c.x + std::sin (angle) * r, c.y - std::cos (angle) * r };
+}
+
+//==============================================================================
+void BlueyLookAndFeel::paint1176Knob (juce::Graphics& g, juce::Point<float> c, float R, float proportion)
+{
+    const float pi = juce::MathConstants<float>::pi;
     const float angle = startAngle + proportion * (endAngle - startAngle);
 
-    // Sombra
-    g.setColour (juce::Colours::black.withAlpha (0.35f));
-    g.fillEllipse (b.expanded (r * 0.06f).translated (0.0f, r * 0.05f));
+    // Sombra proyectada
+    juce::Path body;
+    body.addEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.75f), (int) (R * 0.5f),
+                      { 0, (int) (R * 0.18f) }).drawForPath (g, body);
 
-    // Anillo exterior
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff30323f), c.x, b.getY(),
-                                             juce::Colour (0xff0e0f15), c.x, b.getBottom(), false));
-    g.fillEllipse (b);
+    // Falda negra
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff38383b), c.x - R * 0.6f, c.y - R * 0.8f,
+                                             juce::Colour (0xff07070a), c.x + R * 0.7f, c.y + R * 0.9f, false));
+    g.fillPath (body);
 
-    // Surco + arco naranja
-    const float arcR = r * 0.90f;
-    const float thick = juce::jmax (3.0f, r * 0.075f);
-
-    juce::Path track;
-    track.addCentredArc (c.x, c.y, arcR, arcR, 0.0f, startAngle, endAngle, true);
-    g.setColour (juce::Colour (0xff090a10));
-    g.strokePath (track, juce::PathStrokeType (thick + 2.0f, juce::PathStrokeType::curved,
-                                               juce::PathStrokeType::rounded));
-
-    if (proportion > 0.002f)
+    // Estrías (knurling)
+    const int ridges = juce::jlimit (40, 96, (int) (R * 1.2f));
+    g.setColour (juce::Colour (0xff55555a).withAlpha (0.55f));
+    for (int i = 0; i < ridges; ++i)
     {
-        juce::Path arc;
-        arc.addCentredArc (c.x, c.y, arcR, arcR, 0.0f, startAngle, angle, true);
-
-        g.setColour (orange.withAlpha (0.22f));
-        g.strokePath (arc, juce::PathStrokeType (thick + 6.0f, juce::PathStrokeType::curved,
-                                                 juce::PathStrokeType::rounded));
-        g.setColour (orange);
-        g.strokePath (arc, juce::PathStrokeType (thick, juce::PathStrokeType::curved,
-                                                 juce::PathStrokeType::rounded));
+        const float a = (float) i * 2.0f * pi / (float) ridges;
+        const auto p1 = polar (c, a, R * 0.90f);
+        const auto p2 = polar (c, a, R * 0.995f);
+        g.drawLine (p1.x, p1.y, p2.x, p2.y, juce::jmax (1.0f, R * 0.02f));
     }
 
-    // Tapa interior
-    const auto inner = b.reduced (r * 0.20f);
-    g.setColour (juce::Colour (0xff3b3d4a));
-    g.fillEllipse (inner.expanded (1.5f));
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2c2d38), c.x, inner.getY(),
-                                             juce::Colour (0xff0f1016), c.x, inner.getBottom(), false));
-    g.fillEllipse (inner);
+    // Borde biselado de la tapa
+    const float cr = R * 0.76f;
+    g.setColour (juce::Colour (0xffe3e7ea));
+    g.fillEllipse (c.x - cr - 1.4f, c.y - cr - 1.4f, (cr + 1.4f) * 2.0f, (cr + 1.4f) * 2.0f);
 
-    // Punto indicador
-    const float dotR = juce::jmax (2.0f, r * 0.045f);
-    const float dr = r * 0.62f;
-    const float dx = c.x + std::sin (angle) * dr;
-    const float dy = c.y - std::cos (angle) * dr;
-    g.setColour (orange.withAlpha (0.3f));
-    g.fillEllipse (dx - dotR * 2.0f, dy - dotR * 2.0f, dotR * 4.0f, dotR * 4.0f);
-    g.setColour (orange);
-    g.fillEllipse (dx - dotR, dy - dotR, dotR * 2.0f, dotR * 2.0f);
+    // Tapa de aluminio cepillado (efecto cónico con cuñas)
+    juce::Path cap;
+    cap.addEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
+    g.saveState();
+    g.reduceClipRegion (cap);
+    const int wedges = 96;
+    for (int k = 0; k < wedges; ++k)
+    {
+        const float a0 = (float) k * 2.0f * pi / (float) wedges;
+        const float a1 = a0 + 2.0f * pi / (float) wedges * 1.25f;
+        const float l = 0.5f + 0.5f * std::cos (2.0f * (a0 - 0.55f));
+        const auto col = juce::Colour (0xff7f8e99).interpolatedWith (juce::Colour (0xffeaf2f7), l);
+
+        juce::Path t;
+        t.startNewSubPath (c);
+        t.lineTo (polar (c, a0, cr * 1.08f));
+        t.lineTo (polar (c, a1, cr * 1.08f));
+        t.closeSubPath();
+        g.setColour (col);
+        g.fillPath (t);
+    }
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.16f), c.x - cr * 0.5f, c.y - cr * 0.6f,
+                                             juce::Colours::transparentBlack, c.x + cr * 0.6f, c.y + cr * 0.7f, false));
+    g.fillPath (cap);
+    g.restoreState();
+
+    g.setColour (juce::Colour (0xff2a2e33).withAlpha (0.8f));
+    g.drawEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f, 1.0f);
+
+    // Marcador: anillo negro sobre la tapa
+    const auto m = polar (c, angle, cr * 0.64f);
+    const float rr = R * 0.105f;
+    g.setColour (juce::Colour (0xff0c0c0d));
+    g.drawEllipse (m.x - rr, m.y - rr, rr * 2.0f, rr * 2.0f, juce::jmax (1.5f, R * 0.05f));
 }
 
 void BlueyLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
                                          float sliderPos, float, float, juce::Slider&)
 {
     const float size = (float) juce::jmin (width, height);
-    juce::Rectangle<float> b ((float) x + ((float) width - size) * 0.5f,
-                              (float) y + ((float) height - size) * 0.5f, size, size);
-    paintKnob (g, b.reduced (4.0f), sliderPos);
+    const juce::Point<float> c ((float) x + (float) width * 0.5f, (float) y + (float) height * 0.5f);
+    paint1176Knob (g, c, size * 0.5f * 0.82f, sliderPos);
 }
 
 //==============================================================================
@@ -79,11 +94,11 @@ void PowerButton::paintButton (juce::Graphics& g, bool over, bool)
 {
     auto b = getLocalBounds().toFloat().reduced (2.0f);
     const bool on = getToggleState();
-    const auto col = on ? cyan : juce::Colour (0xff5a5f73);
+    const auto col = on ? cyan : juce::Colour (0xff5a5f6b);
 
-    g.setColour (juce::Colour (0xff0f1220).withAlpha (over ? 1.0f : 0.85f));
+    g.setColour (juce::Colour (0xff0a0b0d).withAlpha (over ? 1.0f : 0.85f));
     g.fillEllipse (b);
-    g.setColour (juce::Colour (0xff2b3250));
+    g.setColour (juce::Colour (0xff3a3d43));
     g.drawEllipse (b, 1.5f);
 
     const auto c = b.getCentre();
@@ -109,115 +124,228 @@ void PowerButton::paintButton (juce::Graphics& g, bool over, bool)
 BlueyCompAudioProcessorEditor::BlueyCompAudioProcessorEditor (BlueyCompAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p),
       compressAttachment (p.apvts, "compress", compressKnob),
-      powerAttachment (p.apvts, "power", powerButton)
+      outputAttachment (p.apvts, "output", outputKnob),
+      bypassAttachment (*p.apvts.getParameter ("bypass"),
+                        [this] (float v)
+                        {
+                            powerButton.setToggleState (v < 0.5f, juce::dontSendNotification);
+                            powerButton.repaint();
+                        })
 {
-    compressKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    compressKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    compressKnob.setRotaryParameters (BlueyLookAndFeel::startAngle, BlueyLookAndFeel::endAngle, true);
-    compressKnob.setDoubleClickReturnValue (true, 0.35);
-    compressKnob.setLookAndFeel (&laf);
-    compressKnob.setPopupDisplayEnabled (true, true, this);
-    addAndMakeVisible (compressKnob);
+    auto setupKnob = [this] (juce::Slider& s, double resetValue)
+    {
+        s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        s.setRotaryParameters (BlueyLookAndFeel::startAngle, BlueyLookAndFeel::endAngle, true);
+        s.setDoubleClickReturnValue (true, resetValue);
+        s.setLookAndFeel (&laf);
+        s.setPopupDisplayEnabled (true, true, this);
+        addAndMakeVisible (s);
+    };
+    setupKnob (compressKnob, 0.35);
+    setupKnob (outputKnob, 0.0);
 
+    powerButton.onClick = [this]
+    {
+        bypassAttachment.setValueAsCompleteGesture (powerButton.getToggleState() ? 0.0f : 1.0f);
+    };
     addAndMakeVisible (powerButton);
+    bypassAttachment.sendInitialUpdate();
 
-    setSize (440, 566);
+    buildTexture();
+    setSize (740, 480);
     startTimerHz (30);
 }
 
 BlueyCompAudioProcessorEditor::~BlueyCompAudioProcessorEditor()
 {
     compressKnob.setLookAndFeel (nullptr);
+    outputKnob.setLookAndFeel (nullptr);
+}
+
+void BlueyCompAudioProcessorEditor::buildTexture()
+{
+    const int w = 740, h = 480;
+    texture = juce::Image (juce::Image::ARGB, w, h, false);
+    juce::Random rng (1176);
+
+    // Frontal negro con cepillado horizontal
+    float rowOffset = 0.0f;
+    for (int y = 0; y < h; ++y)
+    {
+        rowOffset = rowOffset * 0.6f + (rng.nextFloat() - 0.5f) * 5.0f;
+        const float vignette = 1.0f - 0.25f * std::abs ((float) y / (float) h - 0.5f);
+        for (int x = 0; x < w; ++x)
+        {
+            const float n = (rng.nextFloat() - 0.5f) * 5.0f;
+            const int v = juce::jlimit (0, 255, (int) ((24.0f + rowOffset + n) * vignette));
+            texture.setPixelAt (x, y, juce::Colour ((juce::uint8) v, (juce::uint8) v, (juce::uint8) (v + 1), (juce::uint8) 255));
+        }
+    }
+
+    juce::Graphics g (texture);
+    for (int i = 0; i < 160; ++i) // vetas del cepillado
+    {
+        const float x = rng.nextFloat() * (float) w, y = rng.nextFloat() * (float) h;
+        const float len = 80.0f + rng.nextFloat() * 320.0f;
+        g.setColour (juce::Colours::white.withAlpha (0.015f + rng.nextFloat() * 0.035f));
+        g.drawLine (x, y, x + len, y + (rng.nextFloat() - 0.5f) * 1.5f, 0.8f);
+    }
 }
 
 void BlueyCompAudioProcessorEditor::resized()
 {
-    bigKnobArea = { 85.0f, 100.0f, 270.0f, 270.0f };
-    compressKnob.setBounds (bigKnobArea.toNearestInt());
-    powerButton.setBounds (386, 52, 34, 34);
+    bigC = { 370.0f, 282.0f };
+    outC = { 640.0f, 334.0f };
 
-    bottomPanel = { 20.0f, 396.0f, 400.0f, 130.0f };
-    grilleArea  = { 150.0f, 538.0f, 140.0f, 16.0f };
+    compressKnob.setBounds (juce::Rectangle<float> (0, 0, 200, 200).withCentre (bigC).toNearestInt());
+    outputKnob.setBounds (juce::Rectangle<float> (0, 0, 110, 110).withCentre (outC).toNearestInt());
+    powerButton.setBounds (662, 20, 36, 36);
+
+    meterArea = { 220.0f, 98.0f, 300.0f, 14.0f };
 }
 
 void BlueyCompAudioProcessorEditor::timerCallback()
 {
     const float target = processor.gainReductionDb.load();
-    // Subida rápida, caída lenta
-    grSmoothed += (target > grSmoothed ? 0.6f : 0.15f) * (target - grSmoothed);
-    repaint (grilleArea.expanded (4.0f).toNearestInt());
+    grSmoothed += (target > grSmoothed ? 0.5f : 0.10f) * (target - grSmoothed);
+    repaint (meterArea.expanded (90.0f, 30.0f).toNearestInt());
+}
+
+void BlueyCompAudioProcessorEditor::drawKnobScale (juce::Graphics& g, juce::Point<float> c, float tickStart,
+                                                   float majorLen, float minorLen, float labelRadius,
+                                                   const juce::StringArray& majors, int minorsBetween, float fontSize)
+{
+    const int n = majors.size();
+    const int steps = (n - 1) * (minorsBetween + 1);
+    g.setFont (makeFont (fontSize));
+
+    for (int s = 0; s <= steps; ++s)
+    {
+        const float prop = (float) s / (float) steps;
+        const float a = BlueyLookAndFeel::startAngle + prop * (BlueyLookAndFeel::endAngle - BlueyLookAndFeel::startAngle);
+        const bool major = (s % (minorsBetween + 1)) == 0;
+
+        const auto p1 = polar (c, a, tickStart);
+        const auto p2 = polar (c, a, tickStart + (major ? majorLen : minorLen));
+        g.setColour (white);
+        g.drawLine (p1.x, p1.y, p2.x, p2.y, major ? 1.8f : 1.1f);
+
+        if (major)
+        {
+            const auto lp = polar (c, a, labelRadius);
+            g.drawText (majors[s / (minorsBetween + 1)],
+                        juce::Rectangle<float> (44.0f, fontSize + 8.0f).withCentre (lp),
+                        juce::Justification::centred, false);
+        }
+    }
+}
+
+void BlueyCompAudioProcessorEditor::drawScrew (juce::Graphics& g, juce::Point<float> c)
+{
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff6a6d72), c.x - 3.0f, c.y - 3.0f,
+                                             juce::Colour (0xff1c1d20), c.x + 8.0f, c.y + 8.0f, false));
+    g.fillEllipse (c.x - 8.0f, c.y - 8.0f, 16.0f, 16.0f);
+    g.setColour (juce::Colour (0xff0b0b0c));
+    g.drawLine (c.x - 5.0f, c.y + 2.0f, c.x + 5.0f, c.y - 2.0f, 2.0f);
+}
+
+void BlueyCompAudioProcessorEditor::drawBarMeter (juce::Graphics& g)
+{
+    // Título del medidor
+    g.setColour (grey);
+    g.setFont (makeFont (12.0f).withExtraKerningFactor (0.14f));
+    g.drawText ("GAIN REDUCTION  dB",
+                juce::Rectangle<float> (meterArea.getX(), meterArea.getY() - 24.0f, meterArea.getWidth(), 16.0f),
+                juce::Justification::centred, false);
+
+    // Ventana negra hundida
+    const auto well = meterArea.expanded (6.0f, 5.0f);
+    g.setColour (juce::Colour (0xff070708));
+    g.fillRoundedRectangle (well, 4.0f);
+    g.setColour (juce::Colour (0xff34373c));
+    g.drawRoundedRectangle (well.reduced (0.5f), 4.0f, 1.2f);
+
+    const int segs = 30;
+    const float segW = meterArea.getWidth() / (float) segs;
+    const float maxDb = 20.0f;
+    for (int i = 0; i < segs; ++i)
+    {
+        const bool on = ((float) i + 0.5f) / (float) segs * maxDb < grSmoothed;
+        const auto r = juce::Rectangle<float> (meterArea.getX() + segW * (float) i + 0.5f, meterArea.getY(),
+                                               segW - 1.5f, meterArea.getHeight());
+        if (on)
+        {
+            g.setColour (ledOn.withAlpha (0.25f));
+            g.fillRoundedRectangle (r.expanded (1.5f), 2.0f);
+        }
+        g.setColour (on ? ledOn : ledOff);
+        g.fillRoundedRectangle (r, 1.5f);
+    }
+
+    // Escala numerada
+    g.setFont (makeFont (11.0f));
+    for (int v = 0; v <= 20; v += 2)
+    {
+        const float x = meterArea.getX() + (float) v / maxDb * meterArea.getWidth();
+        g.setColour (white.withAlpha (0.75f));
+        g.fillRect (x - 0.5f, well.getBottom() + 2.0f, 1.0f, 4.0f);
+        g.drawText (juce::String (v),
+                    juce::Rectangle<float> (26.0f, 12.0f).withCentre ({ x, well.getBottom() + 15.0f }),
+                    juce::Justification::centred, false);
+    }
+
+    // Lectura digital
+    g.setColour (grSmoothed > 0.05f ? ledOn : juce::Colour (0xff6b5646));
+    g.setFont (makeFont (20.0f));
+    g.drawText (juce::String (grSmoothed, 1) + " dB",
+                juce::Rectangle<float> (well.getRight() + 14.0f, meterArea.getY() - 5.0f, 90.0f, 24.0f),
+                juce::Justification::centredLeft, false);
 }
 
 void BlueyCompAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    const auto w = (float) getWidth();
-    const auto h = (float) getHeight();
+    const float w = (float) getWidth(), h = (float) getHeight();
 
-    // Fondo
-    g.setGradientFill (juce::ColourGradient (bgTop, 0.0f, 0.0f, bgBottom, 0.0f, h, false));
-    g.fillAll();
+    g.drawImageAt (texture, 0, 0);
 
-    // Barra superior
-    g.setColour (juce::Colour (0xff1b1c2a));
-    g.fillRect (0.0f, 0.0f, w, 44.0f);
-    g.setColour (juce::Colour (0xff3a4163));
-    g.drawHorizontalLine (44, 0.0f, w);
+    // Bisel del frontal
+    g.setColour (juce::Colours::white.withAlpha (0.08f));
+    g.drawRoundedRectangle (8.0f, 8.0f, w - 16.0f, h - 16.0f, 6.0f, 1.2f);
+    drawScrew (g, { 24.0f, 24.0f });
+    drawScrew (g, { w - 24.0f, 24.0f });
+    drawScrew (g, { 24.0f, h - 24.0f });
+    drawScrew (g, { w - 24.0f, h - 24.0f });
 
-    g.setColour (juce::Colour (0xffb7bccd));
-    g.setFont (makeFont (17.0f).withExtraKerningFactor (0.06f));
-    g.drawText ("DARK SHAPE", 18, 0, 160, 44, juce::Justification::centredLeft);
-    g.setColour (orange);
-    g.fillPath ([] { juce::Path t; t.addTriangle (0, 8, 7, 8, 3.5f, 0); return t; }(),
-                juce::AffineTransform::translation (136.0f, 18.0f));
+    // Título grabado
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.setFont (makeFont (30.0f).withExtraKerningFactor (0.14f));
+    g.drawText ("BLUEY COMP", 50, 21, 400, 40, juce::Justification::centredLeft);
+    g.setColour (white);
+    g.drawText ("BLUEY COMP", 49, 20, 400, 40, juce::Justification::centredLeft);
+    g.setColour (grey);
+    g.setFont (makeFont (11.0f).withExtraKerningFactor (0.16f));
+    g.drawText ("FET LIMITING AMPLIFIER", 51, 56, 400, 16, juce::Justification::centredLeft);
 
-    g.setColour (juce::Colour (0xffd9dcea));
-    g.setFont (makeFont (18.0f).withExtraKerningFactor (0.1f));
-    g.drawText ("[ BLUEY COMP ]", getWidth() - 220, 0, 202, 44, juce::Justification::centredRight);
+    // Meter
+    drawBarMeter (g);
 
-    // Título de la perilla grande
-    g.setColour (label);
-    g.setFont (makeFont (24.0f).withExtraKerningFactor (0.05f));
-    g.drawText ("COMPRESS", 0, 62, getWidth(), 30, juce::Justification::centred);
+    // Escalas y nombres
+    drawKnobScale (g, bigC, 92.0f, 11.0f, 6.0f, 119.0f,
+                   { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, 1, 19.0f);
+    g.setColour (white);
+    g.setFont (makeFont (22.0f).withExtraKerningFactor (0.14f));
+    g.drawText ("COMPRESS", juce::Rectangle<float> (240.0f, 30.0f).withCentre ({ bigC.x, 428.0f }),
+                juce::Justification::centred, false);
 
-    // Panel inferior
-    g.setColour (juce::Colour (0xff1c2140));
-    g.fillRoundedRectangle (bottomPanel, 28.0f);
-    g.setColour (juce::Colour (0xff2c3358));
-    g.drawRoundedRectangle (bottomPanel.reduced (0.5f), 28.0f, 1.5f);
+    drawKnobScale (g, outC, 51.0f, 8.0f, 4.0f, 75.0f, { "-12", "-6", "0", "+6", "+12" }, 1, 13.0f);
+    g.setColour (white);
+    g.setFont (makeFont (22.0f).withExtraKerningFactor (0.14f));
+    g.drawText ("OUTPUT", juce::Rectangle<float> (240.0f, 30.0f).withCentre ({ outC.x, 428.0f }),
+                juce::Justification::centred, false);
 
-    // Controles fijos (decorativos): Attack 3, Release 7, Ratio 4
-    struct Fixed { const char* name; const char* value; float prop; };
-    const Fixed fixedKnobs[] = {
-        { "ATTACK",  "3", 3.0f / 7.0f },
-        { "RELEASE", "7", 1.0f },
-        { "RATIO",   "4", 0.08f }
-    };
-
-    const float cy = bottomPanel.getY() + 52.0f;
-    for (int i = 0; i < 3; ++i)
-    {
-        const float cx = bottomPanel.getX() + bottomPanel.getWidth() * (0.18f + 0.32f * (float) i);
-        BlueyLookAndFeel::paintKnob (g, { cx - 36.0f, cy - 36.0f, 72.0f, 72.0f }, fixedKnobs[i].prop);
-
-        g.setColour (label);
-        g.setFont (makeFont (15.0f).withExtraKerningFactor (0.04f));
-        g.drawText (juce::String (fixedKnobs[i].name) + "  " + fixedKnobs[i].value,
-                    (int) cx - 60, (int) (cy + 44.0f), 120, 22, juce::Justification::centred);
-    }
-
-    // Rejilla inferior = medidor de gain reduction
-    const int cols = 14, rows = 3;
-    const int lit = juce::jlimit (0, cols, (int) std::round (grSmoothed / 18.0f * (float) cols));
-    const float dotSize = 5.0f;
-    const float stepX = grilleArea.getWidth() / (float) cols;
-    const float stepY = grilleArea.getHeight() / (float) rows;
-    for (int r = 0; r < rows; ++r)
-        for (int c = 0; c < cols; ++c)
-        {
-            const bool on = c < lit;
-            const float dx = grilleArea.getX() + stepX * (float) c + (stepX - dotSize) * 0.5f;
-            const float dy = grilleArea.getY() + stepY * (float) r + (stepY - dotSize) * 0.5f;
-            g.setColour (on ? orange : juce::Colour (0xff0d0f19));
-            g.fillEllipse (dx, dy, dotSize, dotSize);
-        }
+    g.setColour (juce::Colour (0xff6c7078));
+    g.setFont (makeFont (11.0f).withExtraKerningFactor (0.2f));
+    g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, h - 34.0f, w, 16.0f),
+                juce::Justification::centred, false);
 }

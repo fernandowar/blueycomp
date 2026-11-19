@@ -3,15 +3,17 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Estética: azul marino oscuro, perillas negras con anillo naranja, power cyan
+// Estética 1176: frontal negro cepillado, perillas estriadas con tapa de aluminio,
+// escalas blancas y medidor de barras (gain reduction) con números.
 //==============================================================================
 namespace BlueyColours
 {
-    static const juce::Colour orange   { 0xffff5a1f };
+    static const juce::Colour white    { 0xffe8e8e6 };
+    static const juce::Colour grey     { 0xff9a9da3 };
+    static const juce::Colour amber    { 0xffffb347 };
+    static const juce::Colour ledOn    { 0xffff7a2f };
+    static const juce::Colour ledOff   { 0xff15181d };
     static const juce::Colour cyan     { 0xff22c7e8 };
-    static const juce::Colour label    { 0xff8d93a8 };
-    static const juce::Colour bgTop    { 0xff2b3459 };
-    static const juce::Colour bgBottom { 0xff1a1f36 };
 }
 
 class BlueyLookAndFeel : public juce::LookAndFeel_V4
@@ -20,8 +22,8 @@ public:
     static constexpr float startAngle = juce::MathConstants<float>::pi * 1.25f;
     static constexpr float endAngle   = juce::MathConstants<float>::pi * 2.75f;
 
-    // Dibuja una perilla; también la usan los controles fijos decorativos
-    static void paintKnob (juce::Graphics& g, juce::Rectangle<float> bounds, float proportion);
+    // Perilla tipo 1176: cuerpo negro estriado + tapa de aluminio cepillado + anillo
+    static void paint1176Knob (juce::Graphics& g, juce::Point<float> centre, float radius, float proportion);
 
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
@@ -48,19 +50,27 @@ public:
 
 private:
     void timerCallback() override;
+    void buildTexture();
+    void drawKnobScale (juce::Graphics&, juce::Point<float> c, float tickStart, float majorLen, float minorLen,
+                        float labelRadius, const juce::StringArray& majors, int minorsBetween, float fontSize);
+    void drawBarMeter (juce::Graphics&);
+    void drawScrew (juce::Graphics&, juce::Point<float> c);
 
     BlueyCompAudioProcessor& processor;
 
     BlueyLookAndFeel laf;
-    juce::Slider compressKnob;
+    juce::Slider compressKnob, outputKnob;
     PowerButton powerButton;
 
     juce::AudioProcessorValueTreeState::SliderAttachment compressAttachment;
-    juce::AudioProcessorValueTreeState::ButtonAttachment powerAttachment;
+    juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment;
+    juce::ParameterAttachment bypassAttachment;
 
+    juce::Image texture;
     float grSmoothed = 0.0f;
 
-    juce::Rectangle<float> bigKnobArea, bottomPanel, grilleArea;
+    juce::Point<float> bigC, outC;
+    juce::Rectangle<float> meterArea;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BlueyCompAudioProcessorEditor)
 };
