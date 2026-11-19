@@ -31,6 +31,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkVcaAudioProcessor::creat
         juce::NormalisableRange<float> (0.0f, 15.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "drive", 1 }, "Drive",
+        juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f), 5.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "depth", 1 }, "Depth",
+        juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f), 4.0f));
+
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "bypass", 1 }, "Bypass", false));
 
@@ -48,6 +56,8 @@ DarkVcaAudioProcessor::DarkVcaAudioProcessor()
     releaseParam   = apvts.getRawParameterValue ("release");
     makeupParam    = apvts.getRawParameterValue ("makeup");
     bypassParam    = apvts.getRawParameterValue ("bypass");
+    driveParam     = apvts.getRawParameterValue ("drive");
+    depthParam     = apvts.getRawParameterValue ("depth");
 }
 
 bool DarkVcaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -69,6 +79,16 @@ void DarkVcaAudioProcessor::prepareToPlay (double sr, int)
     envFast = envSlow = 0.0f;
     dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0.0f;
     dcCoeff = 1.0f - juce::MathConstants<float>::twoPi * 15.0f / (float) sr;
+
+    const auto onePole = [sr] (float f) { return 1.0f - std::exp (-juce::MathConstants<float>::twoPi * f / (float) sr); };
+    exCoeff = onePole (2500.0f);
+    sideLoCoeff = onePole (150.0f);
+    sideHiCoeff = onePole (1500.0f);
+    exLp[0] = exLp[1] = sideLo = sideHi = 0.0f;
+    driveAmt.reset (sr, 0.03);
+    driveAmt.setCurrentAndTargetValue (driveParam->load() * 0.1f);
+    depthAmt.reset (sr, 0.03);
+    depthAmt.setCurrentAndTargetValue (depthParam->load() * 0.1f);
 
     thresholdDb.reset (sr, 0.02);
     thresholdDb.setCurrentAndTargetValue (thresholdParam->load());
@@ -93,6 +113,8 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     thresholdDb.setTargetValue (thresholdParam->load());
     makeupGain.setTargetValue (juce::Decibels::decibelsToGain (makeupParam->load()));
     wetMix.setTargetValue (bypassParam->load() > 0.5f ? 0.0f : 1.0f);
+    driveAmt.setTargetValue (driveParam->load() * 0.1f);
+    depthAmt.setTargetValue (depthParam->load() * 0.1f);
 
     const float slope = 1.0f - 1.0f / kRatio;
     float peakGr = 0.0f;
@@ -102,6 +124,8 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         const float thr = thresholdDb.getNextValue();
         const float mk = makeupGain.getNextValue();
         const float m = wetMix.getNextValue();
+        const float dv = driveAmt.getNextValue();
+        const float dp = depthAmt.getNextValue();
 
         // Detector enlazado (stereo link): el canal más fuerte manda
         float peak = 0.0f;
@@ -139,33 +163,62 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         peakGr = juce::jmax (peakGr, gr);
 
         const float gain = juce::Decibels::decibelsToGain (-gr) * mk;
-        // Saturación analógica: waveshaper tanh asimétrico (armónicos pares e impares),
-        // siempre presente y más marcado con más compresión. Cada canal tiene una
-        // pequeña "tolerancia" distinta, como componentes reales.
-        const float drive = 1.6f + 0.07f * gr;
-        constexpr float kSatMix = 0.6f;
+        // Saturación analógica: waveshaper tanh asimétrico (armónicos pares e impares).
+        // DRIVE regula cuánto; además se marca más con más compresión. Cada canal
+        // tiene una pequeña "tolerancia" distinta, como componentes reales.
+        const float drive = 1.0f + 2.5f * dv + 0.07f * gr;
+        const float satMix = 0.1f + 0.8f * dv;
         static const float biasCh[2] = { 0.12f, 0.16f };
         static const float gainCh[2] = { 1.0f, 0.994f };
 
+        float dry[2] { 0.0f, 0.0f }, wet[2] { 0.0f, 0.0f };
+
         for (int ch = 0; ch < numCh; ++ch)
         {
-            float* d = buffer.getWritePointer (ch);
-            const float dry = d[i];
-            float wet = dry * gain * gainCh[ch];
+            dry[ch] = buffer.getReadPointer (ch)[i];
+            float w = dry[ch] * gain * gainCh[ch];
 
             const float bias = biasCh[ch];
             const float tb = std::tanh (bias);
-            const float shaped = (std::tanh (drive * wet + bias) - tb) / (drive * (1.0f - tb * tb));
-            wet += kSatMix * (shaped - wet);
+            const float shaped = (std::tanh (drive * w + bias) - tb) / (drive * (1.0f - tb * tb));
+            w += satMix * (shaped - w);
 
             // quita el DC que genera la asimetría
-            const float y = wet - dcX[ch] + dcCoeff * dcY[ch];
-            dcX[ch] = wet;
+            const float y = w - dcX[ch] + dcCoeff * dcY[ch];
+            dcX[ch] = w;
             dcY[ch] = y;
-            wet = y;
-
-            d[i] = dry + m * (wet - dry);
+            wet[ch] = y;
         }
+
+        // DEPTH: frontalidad + tridimensionalidad
+        if (dp > 0.001f)
+        {
+            // Frontalidad: realce de presencia (>2.5 kHz) y armónicos agudos generados
+            for (int ch = 0; ch < numCh; ++ch)
+            {
+                exLp[ch] += exCoeff * (wet[ch] - exLp[ch]);
+                const float hp = wet[ch] - exLp[ch];
+                const float harm = std::tanh (4.0f * hp) * 0.25f - hp;
+                wet[ch] += dp * (0.3f * hp + 0.6f * harm);
+            }
+
+            // Tridimensionalidad: graves centrados (foco) y agudos laterales más
+            // abiertos, así el centro queda adelante y el espacio atrás
+            if (numCh == 2)
+            {
+                const float mid = 0.5f * (wet[0] + wet[1]);
+                float side = 0.5f * (wet[0] - wet[1]);
+                sideLo += sideLoCoeff * (side - sideLo);
+                sideHi += sideHiCoeff * (side - sideHi);
+                const float sideHigh = side - sideHi;
+                side += dp * (0.45f * sideHigh - 0.6f * sideLo);
+                wet[0] = mid + side;
+                wet[1] = mid - side;
+            }
+        }
+
+        for (int ch = 0; ch < numCh; ++ch)
+            buffer.getWritePointer (ch)[i] = dry[ch] + m * (wet[ch] - dry[ch]);
     }
 
     gainReductionDb.store (wetMix.getCurrentValue() > 0.5f ? peakGr : 0.0f);

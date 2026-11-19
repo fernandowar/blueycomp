@@ -58,6 +58,11 @@ private:
     float envFast = 0.0f, envSlow = 0.0f; // reducción suavizada (dB, positiva)
     float dcX[2] { 0.0f, 0.0f }, dcY[2] { 0.0f, 0.0f }; // bloqueador de DC tras la saturación
     float dcCoeff = 0.999f;
+    // DEPTH: filtros de un polo para excitador de presencia y ancho estéreo
+    float exLp[2] { 0.0f, 0.0f };
+    float sideLo = 0.0f, sideHi = 0.0f;
+    float exCoeff = 0.3f, sideLoCoeff = 0.02f, sideHiCoeff = 0.2f;
+    juce::SmoothedValue<float> driveAmt, depthAmt;
 
     juce::SmoothedValue<float> thresholdDb;
     juce::SmoothedValue<float> makeupGain;
@@ -68,6 +73,8 @@ private:
     std::atomic<float>* releaseParam = nullptr;
     std::atomic<float>* makeupParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
+    std::atomic<float>* driveParam = nullptr;
+    std::atomic<float>* depthParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkVcaAudioProcessor)
 };

@@ -5,7 +5,7 @@ using namespace SslColours;
 
 namespace
 {
-    constexpr int kW = 780, kH = 540;
+    constexpr int kW = 780, kH = 580;
 
     juce::Typeface::Ptr loadTypeface (const char* data, int size)
     {
@@ -165,6 +165,8 @@ DarkVcaAudioProcessorEditor::DarkVcaAudioProcessorEditor (DarkVcaAudioProcessor&
       thresholdAttachment (p.apvts, "threshold", thresholdKnob),
       attackAttachment (p.apvts, "attack", attackKnob),
       makeupAttachment (p.apvts, "makeup", makeupKnob),
+      driveAttachment (p.apvts, "drive", driveKnob),
+      depthAttachment (p.apvts, "depth", depthKnob),
       releaseAttachment (*p.apvts.getParameter ("release"),
                          [this] (float v)
                          {
@@ -191,6 +193,8 @@ DarkVcaAudioProcessorEditor::DarkVcaAudioProcessorEditor (DarkVcaAudioProcessor&
     setupKnob (thresholdKnob, -10.0);
     setupKnob (attackKnob, 3.0);
     setupKnob (makeupKnob, 0.0);
+    setupKnob (driveKnob, 5.0);
+    setupKnob (depthKnob, 4.0);
 
     btn100.setRadioGroupId (1);
     btnAuto.setRadioGroupId (1);
@@ -214,6 +218,8 @@ DarkVcaAudioProcessorEditor::~DarkVcaAudioProcessorEditor()
     thresholdKnob.setLookAndFeel (nullptr);
     attackKnob.setLookAndFeel (nullptr);
     makeupKnob.setLookAndFeel (nullptr);
+    driveKnob.setLookAndFeel (nullptr);
+    depthKnob.setLookAndFeel (nullptr);
 }
 
 void DarkVcaAudioProcessorEditor::buildTexture()
@@ -251,11 +257,16 @@ void DarkVcaAudioProcessorEditor::resized()
     thrC = { 390.0f, 290.0f };
     atkC = { 140.0f, 290.0f };
     mkC  = { 640.0f, 290.0f };
+    drvC = { 175.0f, 484.0f };
+    dptC = { 605.0f, 484.0f };
     ladderBox = { 300.0f, 46.0f, 268.0f, 72.0f };
 
     thresholdKnob.setBounds (juce::Rectangle<float> (0, 0, 164, 164).withCentre (thrC).toNearestInt());
     attackKnob.setBounds (juce::Rectangle<float> (0, 0, 100, 100).withCentre (atkC).toNearestInt());
     makeupKnob.setBounds (juce::Rectangle<float> (0, 0, 100, 100).withCentre (mkC).toNearestInt());
+
+    driveKnob.setBounds (juce::Rectangle<float> (0, 0, 64, 64).withCentre (drvC).toNearestInt());
+    depthKnob.setBounds (juce::Rectangle<float> (0, 0, 64, 64).withCentre (dptC).toNearestInt());
 
     btn100.setBounds (302, 458, 84, 32);
     btnAuto.setBounds (394, 458, 84, 32);
@@ -395,12 +406,17 @@ void DarkVcaAudioProcessorEditor::paint (juce::Graphics& g)
     drawKnobTitle (g, atkC.x, 402.0f, "ATTACK", "ms");
     drawKnobTitle (g, mkC.x,  402.0f, "MAKEUP", "dB");
 
+    drawScale (g, drvC, 40.0f, 53.0f, { "0", "5", "10" }, 13.0f);
+    drawScale (g, dptC, 40.0f, 53.0f, { "0", "5", "10" }, 13.0f);
+    drawKnobTitle (g, drvC.x, 538.0f, "DRIVE", {});
+    drawKnobTitle (g, dptC.x, 538.0f, "DEPTH", {});
+
     g.setColour (title);
     g.setFont (titleFont (12.0f).withExtraKerningFactor (0.12f));
     g.drawText ("RELEASE", juce::Rectangle<float> (302.0f, 434.0f, 176.0f, 18.0f), juce::Justification::centred, false);
 
     g.setColour (juce::Colour (0xff6c7078));
     g.setFont (labelFont (11.0f).withExtraKerningFactor (0.25f));
-    g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (50.0f, h - 36.0f, 260.0f, 16.0f),
-                juce::Justification::centredLeft, false);
+    g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, h - 34.0f, w, 16.0f),
+                juce::Justification::centred, false);
 }

@@ -71,7 +71,7 @@ private:
     DarkVcaAudioProcessor& processor;
 
     SslLookAndFeel laf;
-    juce::Slider thresholdKnob, attackKnob, makeupKnob;
+    juce::Slider thresholdKnob, attackKnob, makeupKnob, driveKnob, depthKnob;
     SslButton btn100 { "100 ms", juce::Colour (0xff46e07a) };
     SslButton btnAuto { "AUTO", juce::Colour (0xff46e07a) };
     SslButton btnIn { "IN", juce::Colours::transparentBlack, true };
@@ -79,13 +79,15 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment thresholdAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment attackAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment makeupAttachment;
+    juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment;
+    juce::AudioProcessorValueTreeState::SliderAttachment depthAttachment;
     juce::ParameterAttachment releaseAttachment;
     juce::ParameterAttachment bypassAttachment;
 
     juce::Image texture;
     float grSmoothed = 0.0f;
 
-    juce::Point<float> thrC, atkC, mkC;
+    juce::Point<float> thrC, atkC, mkC, drvC, dptC;
     juce::Rectangle<float> ladderBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkVcaAudioProcessorEditor)
