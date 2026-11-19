@@ -56,6 +56,8 @@ private:
     double sampleRate = 44100.0;
     float relFixedCoeff = 0.0f, relFastCoeff = 0.0f, relSlowCoeff = 0.0f, atkSlowCoeff = 0.0f;
     float envFast = 0.0f, envSlow = 0.0f; // reducción suavizada (dB, positiva)
+    float dcX[2] { 0.0f, 0.0f }, dcY[2] { 0.0f, 0.0f }; // bloqueador de DC tras la saturación
+    float dcCoeff = 0.999f;
 
     juce::SmoothedValue<float> thresholdDb;
     juce::SmoothedValue<float> makeupGain;

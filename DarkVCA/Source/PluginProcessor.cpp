@@ -9,13 +9,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkVcaAudioProcessor::creat
 
     // Threshold estilo SSL: la perilla va de +10 dB (izquierda) a -20 dB (derecha)
     juce::NormalisableRange<float> thr (
-        -20.0f, 10.0f,
+        -30.0f, 10.0f,
         [] (float s, float e, float p) { return e - p * (e - s); },
         [] (float s, float e, float v) { return (e - v) / (e - s); },
         [] (float s, float e, float v) { return juce::jlimit (s, e, std::round (v * 10.0f) / 10.0f); });
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "threshold", 1 }, "Threshold", thr, 0.0f,
+        juce::ParameterID { "threshold", 1 }, "Threshold", thr, -10.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
@@ -67,6 +67,8 @@ void DarkVcaAudioProcessor::prepareToPlay (double sr, int)
     relSlowCoeff  = coeffFor (kRelSlowMs);
     atkSlowCoeff  = coeffFor (kAtkSlowMs);
     envFast = envSlow = 0.0f;
+    dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0.0f;
+    dcCoeff = 1.0f - juce::MathConstants<float>::twoPi * 15.0f / (float) sr;
 
     thresholdDb.reset (sr, 0.02);
     thresholdDb.setCurrentAndTargetValue (thresholdParam->load());
@@ -137,14 +139,31 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         peakGr = juce::jmax (peakGr, gr);
 
         const float gain = juce::Decibels::decibelsToGain (-gr) * mk;
-        const float satAmt = juce::jmin (gr / 12.0f, 1.0f) * 0.04f; // color VCA muy suave
+        // Saturación analógica: waveshaper tanh asimétrico (armónicos pares e impares),
+        // siempre presente y más marcado con más compresión. Cada canal tiene una
+        // pequeña "tolerancia" distinta, como componentes reales.
+        const float drive = 1.6f + 0.07f * gr;
+        constexpr float kSatMix = 0.6f;
+        static const float biasCh[2] = { 0.12f, 0.16f };
+        static const float gainCh[2] = { 1.0f, 0.994f };
 
         for (int ch = 0; ch < numCh; ++ch)
         {
             float* d = buffer.getWritePointer (ch);
             const float dry = d[i];
-            float wet = dry * gain;
-            wet += satAmt * (std::tanh (wet) - wet);
+            float wet = dry * gain * gainCh[ch];
+
+            const float bias = biasCh[ch];
+            const float tb = std::tanh (bias);
+            const float shaped = (std::tanh (drive * wet + bias) - tb) / (drive * (1.0f - tb * tb));
+            wet += kSatMix * (shaped - wet);
+
+            // quita el DC que genera la asimetría
+            const float y = wet - dcX[ch] + dcCoeff * dcY[ch];
+            dcX[ch] = wet;
+            dcY[ch] = y;
+            wet = y;
+
             d[i] = dry + m * (wet - dry);
         }
     }

@@ -188,7 +188,7 @@ DarkVcaAudioProcessorEditor::DarkVcaAudioProcessorEditor (DarkVcaAudioProcessor&
         s.setPopupDisplayEnabled (true, true, this);
         addAndMakeVisible (s);
     };
-    setupKnob (thresholdKnob, 0.0);
+    setupKnob (thresholdKnob, -10.0);
     setupKnob (attackKnob, 3.0);
     setupKnob (makeupKnob, 0.0);
 
@@ -251,7 +251,7 @@ void DarkVcaAudioProcessorEditor::resized()
     thrC = { 390.0f, 290.0f };
     atkC = { 140.0f, 290.0f };
     mkC  = { 640.0f, 290.0f };
-    ladderBox = { 310.0f, 46.0f, 260.0f, 72.0f };
+    ladderBox = { 300.0f, 46.0f, 268.0f, 72.0f };
 
     thresholdKnob.setBounds (juce::Rectangle<float> (0, 0, 164, 164).withCentre (thrC).toNearestInt());
     attackKnob.setBounds (juce::Rectangle<float> (0, 0, 100, 100).withCentre (atkC).toNearestInt());
@@ -319,16 +319,16 @@ void DarkVcaAudioProcessorEditor::drawLadder (juce::Graphics& g)
     g.drawRoundedRectangle (ladderBox.reduced (0.5f), 5.0f, 1.2f);
 
     struct Row { int db; juce::uint32 colour; };
-    const Row rows[] = { { 3, 0xffffd23a }, { 6, 0xffffb02e }, { 10, 0xffff9a2e }, { 14, 0xffff3a3a }, { 20, 0xffd62020 } };
+    const Row rows[] = { { 1, 0xffffe45a }, { 3, 0xffffd23a }, { 6, 0xffffb02e }, { 10, 0xffff9a2e }, { 14, 0xffff3a3a }, { 20, 0xffd62020 } };
     const bool active = btnIn.getToggleState();
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
     {
-        const float cx = ladderBox.getX() + 26.0f + 52.0f * (float) i;
+        const float cx = ladderBox.getX() + 24.0f + 44.0f * (float) i;
         const float ly = ladderBox.getY() + 26.0f;
 
         // LED de reducción
-        const bool lit = grSmoothed >= (float) rows[i].db;
+        const bool lit = grSmoothed >= (float) rows[i].db - 0.5f;
         const auto col = juce::Colour (rows[i].colour);
         if (lit)
         {
@@ -387,7 +387,7 @@ void DarkVcaAudioProcessorEditor::paint (juce::Graphics& g)
     drawLadder (g);
 
     // Perillas y escalas
-    drawScale (g, thrC, 100.0f, 120.0f, { "+10", "+5", "0", "-5", "-10", "-15", "-20" }, 17.0f);
+    drawScale (g, thrC, 100.0f, 120.0f, { "+10", "0", "-10", "-20", "-30" }, 17.0f);
     drawScale (g, atkC, 66.0f, 83.0f, { "0.1", "0.3", "1", "3", "10", "30" }, 15.0f);
     drawScale (g, mkC,  66.0f, 83.0f, { "0", "3", "6", "9", "12", "15" }, 15.0f);
 
