@@ -31,14 +31,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkVcaAudioProcessor::creat
         juce::NormalisableRange<float> (0.0f, 15.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "drive", 1 }, "Drive",
-        juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f), 5.0f));
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "depth", 1 }, "Depth",
-        juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f), 4.0f));
-
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "bypass", 1 }, "Bypass", false));
 
@@ -56,8 +48,6 @@ DarkVcaAudioProcessor::DarkVcaAudioProcessor()
     releaseParam   = apvts.getRawParameterValue ("release");
     makeupParam    = apvts.getRawParameterValue ("makeup");
     bypassParam    = apvts.getRawParameterValue ("bypass");
-    driveParam     = apvts.getRawParameterValue ("drive");
-    depthParam     = apvts.getRawParameterValue ("depth");
 }
 
 bool DarkVcaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -86,9 +76,9 @@ void DarkVcaAudioProcessor::prepareToPlay (double sr, int)
     sideHiCoeff = onePole (1500.0f);
     exLp[0] = exLp[1] = sideLo = sideHi = 0.0f;
     driveAmt.reset (sr, 0.03);
-    driveAmt.setCurrentAndTargetValue (driveParam->load() * 0.1f);
+    driveAmt.setCurrentAndTargetValue (kDrive);
     depthAmt.reset (sr, 0.03);
-    depthAmt.setCurrentAndTargetValue (depthParam->load() * 0.1f);
+    depthAmt.setCurrentAndTargetValue (kDepth);
 
     thresholdDb.reset (sr, 0.02);
     thresholdDb.setCurrentAndTargetValue (thresholdParam->load());
@@ -113,8 +103,6 @@ void DarkVcaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     thresholdDb.setTargetValue (thresholdParam->load());
     makeupGain.setTargetValue (juce::Decibels::decibelsToGain (makeupParam->load()));
     wetMix.setTargetValue (bypassParam->load() > 0.5f ? 0.0f : 1.0f);
-    driveAmt.setTargetValue (driveParam->load() * 0.1f);
-    depthAmt.setTargetValue (depthParam->load() * 0.1f);
 
     const float slope = 1.0f - 1.0f / kRatio;
     float peakGr = 0.0f;

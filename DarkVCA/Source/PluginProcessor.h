@@ -48,6 +48,8 @@ private:
     // Ajustes fijos
     static constexpr float kRatio    = 3.0f;
     static constexpr float kKneeDb   = 3.0f;
+    static constexpr float kDrive    = 0.5f;  // saturación fija (0..1)
+    static constexpr float kDepth    = 0.4f;  // frontalidad + 3D fijos (0..1)
     static constexpr float kRelFixedMs = 100.0f;  // release fijo
     static constexpr float kRelFastMs  = 100.0f;  // etapa rápida del modo Auto
     static constexpr float kRelSlowMs  = 1200.0f; // etapa lenta del modo Auto
@@ -73,8 +75,6 @@ private:
     std::atomic<float>* releaseParam = nullptr;
     std::atomic<float>* makeupParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
-    std::atomic<float>* driveParam = nullptr;
-    std::atomic<float>* depthParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkVcaAudioProcessor)
 };
