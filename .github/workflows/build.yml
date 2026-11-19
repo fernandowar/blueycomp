@@ -1,0 +1,49 @@
+name: Build Bluey Comp
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: VST3 (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S BlueyComp -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Sign ad-hoc (macOS)
+        if: runner.os == 'macOS'
+        run: codesign --force --deep -s - "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" -DestinationPath "dist/BlueyComp-Windows-VST3.zip"
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          ditto -c -k --keepParent "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" "dist/BlueyComp-macOS-VST3.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlueyComp-${{ matrix.name }}-VST3
+          path: dist/*.zip
