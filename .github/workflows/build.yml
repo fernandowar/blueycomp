@@ -1,4 +1,4 @@
-name: Build Bluey Comp
+name: Build plugins
 
 on:
   push:
@@ -6,61 +6,61 @@ on:
 
 jobs:
   build:
-    name: VST3 (${{ matrix.name }})
+    name: ${{ matrix.project }} (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            name: Windows
-          - os: macos-latest
-            name: macOS
+          - { os: windows-latest, name: Windows, project: BlueyComp, product: "Bluey Comp", slug: bluey-comp }
+          - { os: macos-latest,   name: macOS,   project: BlueyComp, product: "Bluey Comp", slug: bluey-comp }
+          - { os: windows-latest, name: Windows, project: DarkVCA,   product: "Dark VCA",   slug: dark-vca }
+          - { os: macos-latest,   name: macOS,   project: DarkVCA,   product: "Dark VCA",   slug: dark-vca }
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S BlueyComp -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S ${{ matrix.project }} -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Sign ad-hoc (macOS)
         if: runner.os == 'macOS'
-        run: codesign --force --deep -s - "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3"
+        run: codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
 
       - name: Package VST3 zip (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" -DestinationPath "dist/BlueyComp-Windows-VST3.zip"
+          Compress-Archive -Path "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" -DestinationPath "dist/${{ matrix.project }}-Windows-VST3.zip"
 
       - name: Package VST3 zip (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
-          ditto -c -k --keepParent "build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3" "dist/BlueyComp-macOS-VST3.zip"
+          ditto -c -k --keepParent "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" "dist/${{ matrix.project }}-macOS-VST3.zip"
 
       - name: Instalador macOS (.pkg)
         if: runner.os == 'macOS'
         continue-on-error: true
         run: |
-          PLUGIN="build/BlueyComp_artefacts/Release/VST3/Bluey Comp.vst3"
+          PLUGIN="build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
           mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 scripts installer
           cp -R "$PLUGIN" pkgroot/Library/Audio/Plug-Ins/VST3/
           cat > scripts/postinstall <<'EOF'
           #!/bin/bash
-          P="/Library/Audio/Plug-Ins/VST3/Bluey Comp.vst3"
+          P="/Library/Audio/Plug-Ins/VST3/${{ matrix.product }}.vst3"
           xattr -cr "$P"
           codesign --force --deep -s - "$P" || true
           exit 0
           EOF
           chmod +x scripts/postinstall
           pkgbuild --root pkgroot --scripts scripts \
-            --identifier com.darkshapestudios.bluey-comp --version 1.0.0 \
-            --install-location / installer/BlueyComp-macOS-Installer.pkg
+            --identifier com.darkshapestudios.${{ matrix.slug }} --version 1.0.0 \
+            --install-location / installer/${{ matrix.project }}-macOS-Installer.pkg
 
       - name: Instalador Windows (.exe)
         if: runner.os == 'Windows'
@@ -70,7 +70,7 @@ jobs:
           choco install innosetup -y --no-progress
           @'
           [Setup]
-          AppName=Bluey Comp
+          AppName=${{ matrix.product }}
           AppVersion=1.0.0
           AppPublisher=Dark Shape Studios
           DefaultDirName={commoncf64}\VST3
@@ -79,20 +79,20 @@ jobs:
           PrivilegesRequired=admin
           ArchitecturesInstallIn64BitMode=x64compatible
           OutputDir=installer
-          OutputBaseFilename=BlueyComp-Windows-Installer
+          OutputBaseFilename=${{ matrix.project }}-Windows-Installer
           Compression=lzma
           [Files]
-          Source: "build\BlueyComp_artefacts\Release\VST3\Bluey Comp.vst3\*"; DestDir: "{commoncf64}\VST3\Bluey Comp.vst3"; Flags: recursesubdirs ignoreversion
+          Source: "build\${{ matrix.project }}_artefacts\Release\VST3\${{ matrix.product }}.vst3\*"; DestDir: "{commoncf64}\VST3\${{ matrix.product }}.vst3"; Flags: recursesubdirs ignoreversion
           '@ | Set-Content -Path installer.iss -Encoding ASCII
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
       - uses: actions/upload-artifact@v4
         with:
-          name: BlueyComp-${{ matrix.name }}-VST3
+          name: ${{ matrix.project }}-${{ matrix.name }}-VST3
           path: dist/*.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: BlueyComp-${{ matrix.name }}-Installer
+          name: ${{ matrix.project }}-${{ matrix.name }}-Installer
           path: installer/*
           if-no-files-found: warn
