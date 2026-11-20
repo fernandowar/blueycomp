@@ -63,11 +63,13 @@ private:
     LimiterLookAndFeel laf;
     juce::Slider thresholdFader, outputFader;
     LimButton btnTruePeak { "TRUE PEAK" };
+    LimButton btnUnlink { "UNLINK" };
     LimButton btnIn { "ON" };
 
     juce::AudioProcessorValueTreeState::SliderAttachment thresholdAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment;
     juce::ParameterAttachment truePeakAttachment;
+    juce::ParameterAttachment unlinkAttachment;
     juce::ParameterAttachment bypassAttachment;
 
     float grSmoothed = 0.0f, peakSmoothed = -100.0f, lufsShown = -100.0f;

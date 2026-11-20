@@ -77,6 +77,8 @@ DarkLimiterAudioProcessorEditor::DarkLimiterAudioProcessorEditor (DarkLimiterAud
       outputAttachment (p.apvts, "ceiling", outputFader),
       truePeakAttachment (*p.apvts.getParameter ("truepeak"),
                           [this] (float v) { btnTruePeak.setToggleState (v > 0.5f, juce::dontSendNotification); }),
+      unlinkAttachment (*p.apvts.getParameter ("unlink"),
+                        [this] (float v) { btnUnlink.setToggleState (v > 0.5f, juce::dontSendNotification); }),
       bypassAttachment (*p.apvts.getParameter ("bypass"),
                         [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); })
 {
@@ -93,11 +95,14 @@ DarkLimiterAudioProcessorEditor::DarkLimiterAudioProcessorEditor (DarkLimiterAud
     setupFader (outputFader, -0.2);
 
     btnTruePeak.onClick = [this] { truePeakAttachment.setValueAsCompleteGesture (btnTruePeak.getToggleState() ? 1.0f : 0.0f); };
+    btnUnlink.onClick   = [this] { unlinkAttachment.setValueAsCompleteGesture (btnUnlink.getToggleState() ? 1.0f : 0.0f); };
     btnIn.onClick       = [this] { bypassAttachment.setValueAsCompleteGesture (btnIn.getToggleState() ? 0.0f : 1.0f); };
     addAndMakeVisible (btnTruePeak);
+    addAndMakeVisible (btnUnlink);
     addAndMakeVisible (btnIn);
 
     truePeakAttachment.sendInitialUpdate();
+    unlinkAttachment.sendInitialUpdate();
     bypassAttachment.sendInitialUpdate();
 
     setSize (kW, kH);
@@ -116,6 +121,7 @@ void DarkLimiterAudioProcessorEditor::resized()
     outputFader.setBounds (690, 96, 60, 340);
     graphBox = { 190.0f, 78.0f, 420.0f, 220.0f };
     tilesBox = { 190.0f, 316.0f, 420.0f, 104.0f };
+    btnUnlink.setBounds (kW - 396, 14, 120, 30);
     btnTruePeak.setBounds (kW - 266, 14, 140, 30);
     btnIn.setBounds (kW - 116, 14, 90, 30);
 }

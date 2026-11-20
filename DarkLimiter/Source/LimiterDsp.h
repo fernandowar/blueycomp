@@ -477,6 +477,45 @@ private:
 };
 
 //==============================================================================
+// Envuelve una etapa para ofrecer modo LINK (una ganancia para L y R) o UNLINK (cada canal
+// con su propia ganancia, más estéreo). Las tres instancias corren siempre y se mezclan con
+// un crossfade suave, así el cambio no hace clics (y la mezcla nunca supera el techo).
+template <class Stage>
+class LinkableStage
+{
+public:
+    template <class... Args>
+    void prepare (double sr, Args... args)
+    {
+        linked.prepare (sr, args...);
+        left.prepare (sr, args...);
+        right.prepare (sr, args...);
+        mix = 0.0f;
+        mixCoeff = 1.0f - std::exp (-1.0f / (0.01f * (float) sr));
+    }
+    int latency() const { return linked.latency(); }
+
+    void process (float inL, float inR, float ceiling, bool truePeak, bool unlink, float& outL, float& outR)
+    {
+        float l1, r1, l2, r2, t1, t2;
+        linked.process (inL, inR, ceiling, truePeak, l1, r1);
+        left.process (inL, inL, ceiling, truePeak, l2, t1);
+        right.process (inR, inR, ceiling, truePeak, t2, r2);
+        mix += mixCoeff * ((unlink ? 1.0f : 0.0f) - mix);
+        outL = l1 + mix * (l2 - l1);
+        outR = r1 + mix * (r2 - r1);
+    }
+    float currentGain() const
+    {
+        return mix > 0.5f ? std::min (left.currentGain(), right.currentGain()) : linked.currentGain();
+    }
+
+private:
+    Stage linked, left, right;
+    float mix = 0.0f, mixCoeff = 0.01f;
+};
+
+//==============================================================================
 // LUFS de corto plazo (ventana de 3 s) con ponderación K, canales L/R con peso 1.
 class LufsShortTerm
 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include <atomic>
 #include <vector>
 #include "LimiterDsp.h"
@@ -49,8 +50,15 @@ private:
     double sampleRate = 44100.0;
     int latencySamples = 0;
 
-    limdsp::DualStage stage1;          // lookahead 1.5 ms, release rápido + cola lenta
-    limdsp::LookaheadStage stage2;     // seguridad: 1 ms, True Peak, fija el techo
+    limdsp::LinkableStage<limdsp::DualStage> stage1;     // lookahead 2 ms, release rápido + cola lenta
+    limdsp::LinkableStage<limdsp::LookaheadStage> stage2; // seguridad: 1 ms, fija el techo
+
+    // Saturación (la misma del Dark VCA) con sobremuestreo 4x contra aliasing
+    static constexpr int kChunk = 512;
+    juce::dsp::Oversampling<float> oversampler { 2, 2, juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true, true };
+    juce::AudioBuffer<float> satBuf;
+    float dcX[2] { 0.0f, 0.0f }, dcY[2] { 0.0f, 0.0f };
+    float dcCoeff = 0.999f;
     limdsp::LufsShortTerm lufs;
 
     // Copia seca retrasada (bypass sin clics y alineado con la latencia)
@@ -63,6 +71,7 @@ private:
     std::atomic<float>* ceilingParam = nullptr;
     std::atomic<float>* truePeakParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
+    std::atomic<float>* unlinkParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkLimiterAudioProcessor)
 };

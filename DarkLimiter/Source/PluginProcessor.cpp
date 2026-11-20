@@ -23,6 +23,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkLimiterAudioProcessor::c
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "bypass", 1 }, "Bypass", false));
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "unlink", 1 }, "Unlink", false));
+
     return layout;
 }
 
@@ -36,6 +39,7 @@ DarkLimiterAudioProcessor::DarkLimiterAudioProcessor()
     ceilingParam   = apvts.getRawParameterValue ("ceiling");
     truePeakParam  = apvts.getRawParameterValue ("truepeak");
     bypassParam    = apvts.getRawParameterValue ("bypass");
+    unlinkParam    = apvts.getRawParameterValue ("unlink");
 }
 
 bool DarkLimiterAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -50,15 +54,22 @@ void DarkLimiterAudioProcessor::prepareToPlay (double sr, int)
 {
     sampleRate = sr;
 
-    // Etapa 1: limitador de dos constantes de tiempo (lookahead 1.5 ms, release rápido 1 ms que sigue el
+    // Etapa 1: limitador de dos constantes de tiempo (lookahead 2 ms, release rápido 1.5 ms que sigue el
     //          recorte necesario y conserva el cuerpo de los transitorios + cola lenta de 40 ms).
     //          Ajustado contra el Ozone IRC II. Sin clipper, con True Peak y al techo final.
     // Etapa 2: lookahead 1 ms, release 30 ms: red de seguridad que casi no actúa.
-    stage1.prepare (sr, 1.5f, 1.0f, 40.0f, 0.2f);
+    stage1.prepare (sr, 2.0f, 1.5f, 40.0f, 0.12f);
     stage2.prepare (sr, 1.0f, 30.0f, 30.0f);
     lufs.prepare (sr);
 
-    latencySamples = stage1.latency() + stage2.latency();
+    oversampler.initProcessing ((size_t) kChunk);
+    oversampler.reset();
+    satBuf.setSize (2, kChunk);
+    dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0.0f;
+    dcCoeff = 1.0f - juce::MathConstants<float>::twoPi * 15.0f / (float) sr;
+
+    const int osLatency = juce::roundToInt (oversampler.getLatencyInSamples());
+    latencySamples = osLatency + stage1.latency() + stage2.latency();
     setLatencySamples (latencySamples);
 
     dryLen = latencySamples + 2;
@@ -86,47 +97,88 @@ void DarkLimiterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     wetMix.setTargetValue (bypassParam->load() > 0.5f ? 0.0f : 1.0f);
     const bool truePeak = truePeakParam->load() > 0.5f;
 
+    const bool unlink = unlinkParam->load() > 0.5f;
+
     float* chL = buffer.getWritePointer (0);
     float* chR = numCh > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float maxGr = 0.0f, maxPeak = 0.0f;
 
-    for (int i = 0; i < numSamples; ++i)
+    // Saturación del Dark VCA (tanh casi simétrico, ligera asimetría y tolerancia entre
+    // canales), a 4x para evitar aliasing, ANTES de la ganancia de entrada y el limitador.
+    constexpr float kSatDrive = 1.25f;
+    static const float biasCh[2] = { 0.004f, 0.006f };
+    static const float gainCh[2] = { 1.0f, 0.994f };
+
+    for (int start = 0; start < numSamples; start += kChunk)
     {
-        const float g = inGain.getNextValue();
-        const float c = ceilGain.getNextValue();
-        const float m = wetMix.getNextValue();
+        const int n = juce::jmin (kChunk, numSamples - start);
 
-        const float dryL = chL[i];
-        const float dryR = chR != nullptr ? chR[i] : dryL;
+        for (int i = 0; i < n; ++i)
+        {
+            satBuf.setSample (0, i, chL[start + i]);
+            satBuf.setSample (1, i, chR != nullptr ? chR[start + i] : chL[start + i]);
+        }
+        juce::dsp::AudioBlock<float> block (satBuf);
+        auto sub = block.getSubBlock (0, (size_t) n);
+        auto up = oversampler.processSamplesUp (sub);
+        for (size_t ch = 0; ch < 2; ++ch)
+        {
+            float* d = up.getChannelPointer (ch);
+            const float bias = biasCh[ch], tb = std::tanh (bias);
+            const float norm = 1.0f / (kSatDrive * (1.0f - tb * tb));
+            for (size_t i = 0; i < up.getNumSamples(); ++i)
+                d[i] = (std::tanh (kSatDrive * d[i] * gainCh[ch] + bias) - tb) * norm;
+        }
+        oversampler.processSamplesDown (sub);
 
-        // copia seca retrasada por la latencia total
-        const int rp = (dryPos + dryLen - latencySamples) % dryLen;
-        const float dl = dryRing[0][(size_t) rp];
-        const float dr = dryRing[1][(size_t) rp];
-        dryRing[0][(size_t) dryPos] = dryL;
-        dryRing[1][(size_t) dryPos] = dryR;
-        dryPos = (dryPos + 1) % dryLen;
+        for (int i = 0; i < n; ++i)
+        {
+            const float g = inGain.getNextValue();
+            const float c = ceilGain.getNextValue();
+            const float m = wetMix.getNextValue();
 
-        // limitador de dos etapas
-        float a, b, wl, wr;
-        stage1.process (dryL * g, dryR * g, c, truePeak, a, b);
-        stage2.process (a, b, c, truePeak, wl, wr);
+            const float dryL = chL[start + i];
+            const float dryR = chR != nullptr ? chR[start + i] : dryL;
 
-        // seguro final: nunca por encima del techo
-        wl = juce::jlimit (-c, c, wl);
-        wr = juce::jlimit (-c, c, wr);
+            // quita el DC que genera la asimetría de la saturación
+            float s[2] = { satBuf.getSample (0, i), satBuf.getSample (1, i) };
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                const float y = s[ch] - dcX[ch] + dcCoeff * dcY[ch];
+                dcX[ch] = s[ch];
+                dcY[ch] = y;
+                s[ch] = y;
+            }
 
-        const float grLin = stage1.currentGain() * stage2.currentGain();
-        maxGr = juce::jmax (maxGr, -juce::Decibels::gainToDecibels (grLin, -60.0f));
+            // copia seca retrasada por la latencia total
+            const int rp = (dryPos + dryLen - latencySamples) % dryLen;
+            const float dl = dryRing[0][(size_t) rp];
+            const float dr = dryRing[1][(size_t) rp];
+            dryRing[0][(size_t) dryPos] = dryL;
+            dryRing[1][(size_t) dryPos] = dryR;
+            dryPos = (dryPos + 1) % dryLen;
 
-        const float outL = dl + m * (wl - dl);
-        const float outR = dr + m * (wr - dr);
-        chL[i] = outL;
-        if (chR != nullptr) chR[i] = outR;
+            // limitador de dos etapas
+            float a, b, wl, wr;
+            stage1.process (s[0] * g, s[1] * g, c, truePeak, unlink, a, b);
+            stage2.process (a, b, c, truePeak, unlink, wl, wr);
 
-        maxPeak = juce::jmax (maxPeak, std::abs (outL), std::abs (outR));
-        lufs.process (outL, outR);
+            // seguro final: nunca por encima del techo
+            wl = juce::jlimit (-c, c, wl);
+            wr = juce::jlimit (-c, c, wr);
+
+            const float grLin = stage1.currentGain() * stage2.currentGain();
+            maxGr = juce::jmax (maxGr, -juce::Decibels::gainToDecibels (grLin, -60.0f));
+
+            const float outL = dl + m * (wl - dl);
+            const float outR = dr + m * (wr - dr);
+            chL[start + i] = outL;
+            if (chR != nullptr) chR[start + i] = outR;
+
+            maxPeak = juce::jmax (maxPeak, std::abs (outL), std::abs (outR));
+            lufs.process (outL, outR);
+        }
     }
 
     gainReductionDb.store (wetMix.getCurrentValue() > 0.5f ? maxGr : 0.0f);

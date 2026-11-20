@@ -4,6 +4,8 @@ Limitador / maximizador de **mastering** VST3 (Windows / macOS), pensado para ag
 
 - **THRESHOLD (fader izquierdo)**: de 0 a -20 dB. Bajarlo sube la ganancia que entra al limitador (hasta +20 dB).
 - **OUTPUT (fader derecho)**: techo (ceiling) de -12 a 0 dB. Por defecto -0.2 dB.
+- **UNLINK**: cada canal (L/R) con su propia ganancia, más estéreo. Apagado = ganancia compartida.
+- **Saturación**: la misma del Dark VCA (tanh casi simétrico, toque analógico), fija, con sobremuestreo 4x para evitar aliasing; va antes del limitador.
 - **TRUE PEAK**: activa/desactiva la detección de picos entre muestras (interpolación 4x).
 - **Medidor LUFS short-term** (ventana de 3 s, ponderación K, ITU-R BS.1770) con historial de 60 s.
 - Medidores de gain reduction y de pico de salida. Botón **IN** (bypass).
