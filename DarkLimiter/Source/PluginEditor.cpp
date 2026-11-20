@@ -89,7 +89,7 @@ DarkLimiterAudioProcessorEditor::DarkLimiterAudioProcessorEditor (DarkLimiterAud
         s.setPopupDisplayEnabled (true, true, this);
         addAndMakeVisible (s);
     };
-    setupFader (thresholdFader, -10.0);
+    setupFader (thresholdFader, 0.0);
     setupFader (outputFader, -0.2);
 
     btnTruePeak.onClick = [this] { truePeakAttachment.setValueAsCompleteGesture (btnTruePeak.getToggleState() ? 1.0f : 0.0f); };

@@ -8,7 +8,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkLimiterAudioProcessor::c
     // Threshold (entrada): bajarlo sube la ganancia que entra al limitador
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "threshold", 1 }, "Threshold",
-        juce::NormalisableRange<float> (-20.0f, 0.0f, 0.1f), -10.0f,
+        juce::NormalisableRange<float> (-20.0f, 0.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
     // Output = techo (ceiling)
@@ -50,11 +50,11 @@ void DarkLimiterAudioProcessor::prepareToPlay (double sr, int)
 {
     sampleRate = sr;
 
-    // Etapa 1: limitador lookahead 2 ms, release adaptable 3-30 ms (corto en transitorios,
-    //          más largo con limitación sostenida). Sin clipper: transparente.
-    // Etapa 2: lookahead 1 ms, release 10 ms, True Peak: atrapa lo que quede y fija el techo.
-    stage1.prepare (sr, 2.0f, 3.0f, 30.0f);
-    stage2.prepare (sr, 1.0f, 10.0f, 10.0f);
+    // Etapa 1: limitador lookahead 5 ms, release adaptable 20-200 ms (corto en transitorios,
+    //          más largo con limitación sostenida). Sin clipper; deja pasar +2 dB a la etapa 2.
+    // Etapa 2: lookahead 1.5 ms, release 12 ms, True Peak: atrapa lo que quede y fija el techo.
+    stage1.prepare (sr, 5.0f, 20.0f, 200.0f);
+    stage2.prepare (sr, 1.5f, 12.0f, 12.0f);
     lufs.prepare (sr);
 
     latencySamples = stage1.latency() + stage2.latency();
@@ -109,7 +109,7 @@ void DarkLimiterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         // limitador de dos etapas
         float a, b, wl, wr;
-        stage1.process (dryL * g, dryR * g, c, false, a, b);
+        stage1.process (dryL * g, dryR * g, c * 1.2589f, false, a, b); // +2 dB: los picos pasan suaves a la etapa 2
         stage2.process (a, b, c, truePeak, wl, wr);
 
         // seguro final: nunca por encima del techo
