@@ -49,8 +49,7 @@ private:
     double sampleRate = 44100.0;
     int latencySamples = 0;
 
-    limdsp::MultibandStage stage1;     // 3 bandas, lookahead 10 ms, release adaptable
-    limdsp::SoftClipper4x clipper;     // recorta los picos con curva suave (sobremuestreo 4x)
+    limdsp::LookaheadStage stage1;     // lookahead 2 ms, release adaptable 3-30 ms
     limdsp::LookaheadStage stage2;     // seguridad: 1 ms, True Peak, fija el techo
     limdsp::LufsShortTerm lufs;
 

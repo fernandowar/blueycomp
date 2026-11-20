@@ -1,12 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-namespace
-{
-    constexpr float kStage1Over = 1.2589f; // +2 dB: la etapa 1 deja pasar 2 dB de picos al clipper
-    constexpr float kClipKnee = 0.7f;      // el clipper empieza a curvar al 70% del techo
-}
-
 juce::AudioProcessorValueTreeState::ParameterLayout DarkLimiterAudioProcessor::createLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -14,13 +8,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkLimiterAudioProcessor::c
     // Threshold (entrada): bajarlo sube la ganancia que entra al limitador
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "threshold", 1 }, "Threshold",
-        juce::NormalisableRange<float> (-20.0f, 0.0f, 0.1f), -4.0f,
+        juce::NormalisableRange<float> (-20.0f, 0.0f, 0.1f), -10.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
     // Output = techo (ceiling)
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "ceiling", 1 }, "Output",
-        juce::NormalisableRange<float> (-12.0f, 0.0f, 0.1f), -0.3f,
+        juce::NormalisableRange<float> (-12.0f, 0.0f, 0.1f), -0.2f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
@@ -56,18 +50,14 @@ void DarkLimiterAudioProcessor::prepareToPlay (double sr, int)
 {
     sampleRate = sr;
 
-    // Etapa 1: limitador de 3 bandas (cruces 120 Hz y 2.5 kHz), lookahead 10 ms (ataque lento y
-    //          suave), release dependiente del programa por banda (los graves lo tienen más largo).
-    // Clipper suave (4x): se lleva los últimos 2 dB de picos sin bajar la ganancia, así se
-    //          conserva la pegada de los transitorios y se reduce el bombeo.
-    // Etapa 2: lookahead 1 ms, release 40 ms, True Peak: atrapa lo que quede y fija el techo.
-    const limdsp::MultibandStage::BandCfg cfg[3] = { { 120.0f, 1000.0f }, { 60.0f, 500.0f }, { 42.0f, 350.0f } };
-    stage1.prepare (sr, 10.0f, 120.0f, 2500.0f, cfg);
-    clipper.reset();
-    stage2.prepare (sr, 1.0f, 40.0f, 40.0f);
+    // Etapa 1: limitador lookahead 2 ms, release adaptable 3-30 ms (corto en transitorios,
+    //          más largo con limitación sostenida). Sin clipper: transparente.
+    // Etapa 2: lookahead 1 ms, release 10 ms, True Peak: atrapa lo que quede y fija el techo.
+    stage1.prepare (sr, 2.0f, 3.0f, 30.0f);
+    stage2.prepare (sr, 1.0f, 10.0f, 10.0f);
     lufs.prepare (sr);
 
-    latencySamples = stage1.latency() + limdsp::SoftClipper4x::kLatency + stage2.latency();
+    latencySamples = stage1.latency() + stage2.latency();
     setLatencySamples (latencySamples);
 
     dryLen = latencySamples + 2;
@@ -118,12 +108,9 @@ void DarkLimiterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         dryPos = (dryPos + 1) % dryLen;
 
         // limitador de dos etapas
-        const float c1 = c * kStage1Over;
-        const float bandCeil[3] = { c1, c1, c1 };
-        float a, b, a2, b2, wl, wr;
-        stage1.process (dryL * g, dryR * g, bandCeil, a, b);
-        clipper.process (a, b, c, kClipKnee, a2, b2);
-        stage2.process (a2, b2, c, truePeak, wl, wr);
+        float a, b, wl, wr;
+        stage1.process (dryL * g, dryR * g, c, false, a, b);
+        stage2.process (a, b, c, truePeak, wl, wr);
 
         // seguro final: nunca por encima del techo
         wl = juce::jlimit (-c, c, wl);

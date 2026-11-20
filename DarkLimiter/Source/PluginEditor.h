@@ -10,40 +10,32 @@
 //==============================================================================
 namespace LimColours
 {
-    static const juce::Colour number { 0xffe4e6ec };
-    static const juce::Colour title  { 0xffffffff };
-    static const juce::Colour grey   { 0xff8d9098 };
-    static const juce::Colour amber  { 0xffffb347 };
+    static const juce::Colour bg     { 0xff0c0f15 };
+    static const juce::Colour panel  { 0xff131822 };
+    static const juce::Colour line   { 0xff262d3a };
+    static const juce::Colour ink    { 0xffe6eaf2 };
+    static const juce::Colour grey   { 0xff7d8697 };
+    static const juce::Colour cyan   { 0xff2fd0ff };
+    static const juce::Colour pink   { 0xffff4f8b };
+    static const juce::Colour green  { 0xff3ddc8a };
 }
 
 class LimiterLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    static constexpr int thumbHalf = 15; // mitad de la altura de la tapa del fader
-
+    static constexpr int thumbHalf = 11;
     int getSliderThumbRadius (juce::Slider&) override { return thumbHalf; }
-
     void drawLinearSlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float minSliderPos, float maxSliderPos,
                            juce::Slider::SliderStyle, juce::Slider&) override;
 };
 
-// Botón rectangular gris con LED, o brillo naranja (para "IN")
+// Botón plano estilo Ozone (píldora con acento cian)
 class LimButton : public juce::ToggleButton
 {
 public:
-    LimButton (const juce::String& text, juce::Colour led, bool glowWhenOn = false)
-        : ledColour (led), glow (glowWhenOn)
-    {
-        setButtonText (text);
-        setClickingTogglesState (true);
-    }
-
+    explicit LimButton (const juce::String& t) { setButtonText (t); setClickingTogglesState (true); }
     void paintButton (juce::Graphics&, bool isMouseOver, bool isButtonDown) override;
-
-private:
-    juce::Colour ledColour;
-    bool glow;
 };
 
 //==============================================================================
@@ -59,32 +51,29 @@ public:
 
 private:
     void timerCallback() override;
-    void buildTexture();
-    void drawScrew (juce::Graphics&, juce::Point<float> c);
     void drawFaderScale (juce::Graphics&, const juce::Slider&, float minV, float maxV,
                          float tickStep, float labelStep, bool labelsOnLeft);
-    void drawDisplay (juce::Graphics&);
-    void drawBar (juce::Graphics&, juce::Rectangle<float> area, int segs, float value, float minV, float maxV,
-                  bool greenToRed, const juce::StringArray& labels, const juce::Array<float>& labelValues);
+    void drawGraph (juce::Graphics&);
+    void drawVMeter (juce::Graphics&, juce::Rectangle<float> r, float value, float minV, float maxV, bool fromTop, juce::Colour c);
+    void drawTile (juce::Graphics&, juce::Rectangle<float> r, const juce::String& title, const juce::String& value,
+                   const juce::String& unit, juce::Colour c);
 
     DarkLimiterAudioProcessor& processor;
 
     LimiterLookAndFeel laf;
     juce::Slider thresholdFader, outputFader;
-    LimButton btnTruePeak { "TRUE PEAK", juce::Colour (0xff46e07a) };
-    LimButton btnIn { "IN", juce::Colours::transparentBlack, true };
+    LimButton btnTruePeak { "TRUE PEAK" };
+    LimButton btnIn { "ON" };
 
     juce::AudioProcessorValueTreeState::SliderAttachment thresholdAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment;
     juce::ParameterAttachment truePeakAttachment;
     juce::ParameterAttachment bypassAttachment;
 
-    juce::Image texture;
     float grSmoothed = 0.0f, peakSmoothed = -100.0f, lufsShown = -100.0f;
-    int historyTick = 0;
-    std::deque<float> history; // LUFS cada 0.5 s (60 s)
+    std::deque<float> grHist, pkHist; // 30 Hz, ~10 s
 
-    juce::Rectangle<float> displayBox;
+    juce::Rectangle<float> graphBox, tilesBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkLimiterAudioProcessorEditor)
 };
