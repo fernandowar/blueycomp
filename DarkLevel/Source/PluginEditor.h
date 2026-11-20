@@ -72,9 +72,11 @@ private:
 
     SslLookAndFeel laf;
     juce::Slider gainKnob;
+    SslButton btnAuto { "AUTO", juce::Colour (0xff46e07a) };
     SslButton btnIn { "IN", juce::Colours::transparentBlack, true };
 
     juce::AudioProcessorValueTreeState::SliderAttachment gainAttachment;
+    juce::ParameterAttachment autoAttachment;
     juce::ParameterAttachment bypassAttachment;
 
     juce::Image texture;

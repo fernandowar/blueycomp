@@ -5,7 +5,7 @@ using namespace SslColours;
 
 namespace
 {
-    constexpr int kW = 720, kH = 460;
+    constexpr int kW = 740, kH = 480;
 
     juce::Typeface::Ptr loadTypeface (const char* data, int size)
     {
@@ -163,6 +163,14 @@ void SslButton::paintButton (juce::Graphics& g, bool over, bool)
 DarkLevelAudioProcessorEditor::DarkLevelAudioProcessorEditor (DarkLevelAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p),
       gainAttachment (p.apvts, "gain", gainKnob),
+      autoAttachment (*p.apvts.getParameter ("auto"),
+                      [this] (float v)
+                      {
+                          btnAuto.setToggleState (v > 0.5f, juce::dontSendNotification);
+                          gainKnob.setEnabled (v < 0.5f);
+                          gainKnob.setAlpha (v > 0.5f ? 0.45f : 1.0f);
+                          repaint();
+                      }),
       bypassAttachment (*p.apvts.getParameter ("bypass"),
                         [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); })
 {
@@ -174,8 +182,11 @@ DarkLevelAudioProcessorEditor::DarkLevelAudioProcessorEditor (DarkLevelAudioProc
     gainKnob.setPopupDisplayEnabled (true, true, this);
     addAndMakeVisible (gainKnob);
 
+    btnAuto.onClick = [this] { autoAttachment.setValueAsCompleteGesture (btnAuto.getToggleState() ? 1.0f : 0.0f); };
+    addAndMakeVisible (btnAuto);
     btnIn.onClick = [this] { bypassAttachment.setValueAsCompleteGesture (btnIn.getToggleState() ? 0.0f : 1.0f); };
     addAndMakeVisible (btnIn);
+    autoAttachment.sendInitialUpdate();
     bypassAttachment.sendInitialUpdate();
 
     buildTexture();
@@ -204,7 +215,7 @@ void DarkLevelAudioProcessorEditor::buildTexture()
         {
             const float n = (rng.nextFloat() - 0.5f) * 5.0f;
             const int v = juce::jlimit (0, 255, (int) ((24.0f + rowOffset + n) * vignette));
-            texture.setPixelAt (x, y, juce::Colour ((juce::uint8) v, (juce::uint8) v, (juce::uint8) (v + 1), (juce::uint8) 255));
+            texture.setPixelAt (x, y, juce::Colour ((juce::uint8) v, (juce::uint8) (v + 2), (juce::uint8) (v + 6), (juce::uint8) 255));
         }
     }
 
@@ -220,9 +231,10 @@ void DarkLevelAudioProcessorEditor::buildTexture()
 
 void DarkLevelAudioProcessorEditor::resized()
 {
-    knobC = { 220.0f, 250.0f };
-    meterBox = { 470.0f, 70.0f, 70.0f, 320.0f };
+    knobC = { 220.0f, 262.0f };
+    meterBox = { 440.0f, 86.0f, 110.0f, 316.0f };
     gainKnob.setBounds (juce::Rectangle<float> (0, 0, 220, 220).withCentre (knobC).toNearestInt());
+    btnAuto.setBounds (kW - 262, 28, 104, 36);
     btnIn.setBounds (kW - 150, 28, 96, 36);
 }
 
@@ -280,54 +292,75 @@ void DarkLevelAudioProcessorEditor::drawScrew (juce::Graphics& g, juce::Point<fl
 
 void DarkLevelAudioProcessorEditor::drawMeter (juce::Graphics& g)
 {
-    constexpr float lo = -30.0f, hi = 0.0f;
-    constexpr int segs = 30;
+    constexpr float lo = -18.0f, hi = 0.0f;
+    constexpr int segs = 36;
     const auto m = meterBox;
-
-    g.setColour (juce::Colour (0xff070708));
-    g.fillRoundedRectangle (m.expanded (10.0f, 10.0f), 6.0f);
-    g.setColour (juce::Colour (0xff34373c));
-    g.drawRoundedRectangle (m.expanded (10.0f, 10.0f).reduced (0.5f), 6.0f, 1.2f);
-
-    const float segH = m.getHeight() / (float) segs;
     auto yOf = [&] (float db) { return m.getBottom() - (juce::jlimit (lo, hi, db) - lo) / (hi - lo) * m.getHeight(); };
 
-    // zona objetivo -12..-6
-    g.setColour (juce::Colour (0xff3ddc6a).withAlpha (0.10f));
-    g.fillRect (m.expanded (8.0f, 0.0f).withTop (yOf (-6.0f)).withBottom (yOf (-12.0f)));
+    // panel
+    const auto panel = m.expanded (22.0f, 16.0f);
+    g.setColour (juce::Colour (0xff060809));
+    g.fillRoundedRectangle (panel, 8.0f);
+    g.setColour (juce::Colour (0xff343a42));
+    g.drawRoundedRectangle (panel.reduced (0.5f), 8.0f, 1.2f);
 
+    // zona objetivo -12..-6 (ancha, verde)
+    const auto zone = juce::Rectangle<float> (panel.getX() + 4.0f, yOf (-6.0f), panel.getWidth() - 8.0f, yOf (-12.0f) - yOf (-6.0f));
+    g.setColour (juce::Colour (0xff3ddc6a).withAlpha (0.16f));
+    g.fillRoundedRectangle (zone, 4.0f);
+    g.setColour (juce::Colour (0xff3ddc6a).withAlpha (0.55f));
+    g.drawRoundedRectangle (zone, 4.0f, 1.4f);
+
+    const float segH = m.getHeight() / (float) segs;
     for (int i = 0; i < segs; ++i)
     {
         const float segDb = lo + ((float) i + 0.5f) / (float) segs * (hi - lo);
         const bool lit = segDb < peakNow;
         juce::Colour col;
-        if (segDb > -6.0f)       col = juce::Colour (0xffff3a3a);
+        if (segDb > -6.0f)        col = juce::Colour (0xffff3a3a);
         else if (segDb >= -12.0f) col = juce::Colour (0xff3ddc6a);
         else                      col = juce::Colour (0xffffb02e);
         const auto r = juce::Rectangle<float> (m.getX(), m.getBottom() - segH * (float) (i + 1) + 1.0f, m.getWidth(), segH - 2.0f);
-        if (lit) { g.setColour (col.withAlpha (0.25f)); g.fillRoundedRectangle (r.expanded (2.0f), 2.0f); }
-        g.setColour (lit ? col : col.withMultipliedBrightness (0.18f).withMultipliedSaturation (0.7f));
+        if (lit) { g.setColour (col.withAlpha (0.22f)); g.fillRoundedRectangle (r.expanded (2.0f), 2.0f); }
+        g.setColour (lit ? col : col.withMultipliedBrightness (0.16f).withMultipliedSaturation (0.7f));
         g.fillRoundedRectangle (r, 1.5f);
     }
 
-    // marca de pico (hold)
-    if (holdDb > lo)
+    // marca de pico: barra blanca gruesa con contorno oscuro, brillo y flechas a los lados
+    if (holdDb > lo - 1.0f)
     {
         const float y = yOf (holdDb);
-        g.setColour (holdDb > -6.0f ? juce::Colour (0xffff7a7a) : juce::Colours::white);
-        g.fillRect (m.getX() - 6.0f, y - 1.0f, m.getWidth() + 12.0f, 2.0f);
+        const bool hot = holdDb > -6.0f;
+        const auto line = juce::Rectangle<float> (m.getX() - 12.0f, y - 2.5f, m.getWidth() + 24.0f, 5.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+        g.fillRoundedRectangle (line.expanded (1.5f), 2.5f);
+        g.setColour ((hot ? juce::Colour (0xffffe3e3) : juce::Colours::white).withAlpha (0.28f));
+        g.fillRoundedRectangle (line.expanded (4.0f, 3.0f), 4.0f);
+        g.setColour (juce::Colours::white);
+        g.fillRoundedRectangle (line, 2.0f);
+        for (int s = -1; s <= 1; s += 2)
+        {
+            juce::Path tri;
+            const float x0 = s < 0 ? panel.getX() - 2.0f : panel.getRight() + 2.0f;
+            tri.addTriangle (x0, y - 7.0f, x0, y + 7.0f, x0 + (float) -s * 11.0f, y);
+            g.setColour (juce::Colours::white);
+            g.fillPath (tri);
+        }
     }
 
     // escala
     g.setFont (numberFont (14.0f));
-    for (float v : { 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -30.0f })
+    for (float v : { 0.0f, -3.0f, -6.0f, -9.0f, -12.0f, -15.0f, -18.0f })
     {
-        g.setColour (v == -6.0f || v == -12.0f ? juce::Colour (0xff6bf09a) : number);
-        g.drawText (juce::String ((int) v), juce::Rectangle<float> (44.0f, 16.0f).withCentre ({ m.getRight() + 38.0f, yOf (v) }),
+        const bool edge = v == -6.0f || v == -12.0f;
+        g.setColour (edge ? juce::Colour (0xff6bf09a) : number);
+        g.drawText (juce::String ((int) v), juce::Rectangle<float> (40.0f, 16.0f).withCentre ({ panel.getRight() + 44.0f, yOf (v) }),
                     juce::Justification::centredLeft, false);
-        g.setColour (dot.withAlpha (0.7f));
-        g.drawLine (m.getRight() + 12.0f, yOf (v), m.getRight() + 20.0f, yOf (v), 1.2f);
     }
+
+    g.setColour (juce::Colour (0xff6bf09a));
+    g.setFont (titleFont (10.0f).withExtraKerningFactor (0.18f));
+    g.drawText ("TARGET", juce::Rectangle<float> (panel.getX() - 80.0f, zone.getCentreY() - 9.0f, 72.0f, 18.0f), juce::Justification::centredRight, false);
 }
 
 void DarkLevelAudioProcessorEditor::paint (juce::Graphics& g)
@@ -351,8 +384,17 @@ void DarkLevelAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (labelFont (12.0f).withExtraKerningFactor (0.2f));
     g.drawText ("GAIN STAGING", 52, 66, 300, 16, juce::Justification::centredLeft);
 
+    // placa empotrada detrás de la perilla
+    g.setColour (juce::Colour (0xff0a0c0f));
+    g.fillRoundedRectangle (juce::Rectangle<float> (64.0f, 108.0f, 312.0f, 312.0f), 14.0f);
+    g.setColour (juce::Colour (0xff2b3038));
+    g.drawRoundedRectangle (juce::Rectangle<float> (64.5f, 108.5f, 311.0f, 311.0f), 14.0f, 1.2f);
+
     drawScale (g, knobC, 118.0f, 142.0f, { "-24", "-12", "0", "+12", "+24" }, 17.0f);
-    drawKnobTitle (g, knobC.x, 412.0f, "GAIN", "dB");
+    const bool autoOn = btnAuto.getToggleState();
+    const float shownGain = autoOn ? processor.autoGainDb.load() : (float) gainKnob.getValue();
+    drawKnobTitle (g, knobC.x, 436.0f, autoOn ? "AUTO GAIN" : "GAIN",
+                   (shownGain >= 0.0f ? "+" : "") + juce::String (shownGain, 1) + " dB");
 
     drawMeter (g);
 
@@ -366,10 +408,10 @@ void DarkLevelAudioProcessorEditor::paint (juce::Graphics& g)
     else                   { status = "TOO LOW";  sc = amber; }
     g.setColour (sc);
     g.setFont (titleFont (16.0f).withExtraKerningFactor (0.12f));
-    g.drawText (status, juce::Rectangle<float> (meterBox.getCentreX() - 90.0f, 400.0f, 180.0f, 22.0f), juce::Justification::centred, false);
+    g.drawText (status, juce::Rectangle<float> (meterBox.getCentreX() - 90.0f, 424.0f, 180.0f, 22.0f), juce::Justification::centred, false);
     g.setFont (numberFont (22.0f));
     g.drawText (pk > -90.0f ? juce::String (pk, 1) + " dB" : juce::String ("-inf"),
-                juce::Rectangle<float> (meterBox.getCentreX() - 90.0f, 426.0f, 180.0f, 24.0f), juce::Justification::centred, false);
+                juce::Rectangle<float> (meterBox.getCentreX() - 90.0f, 446.0f, 180.0f, 24.0f), juce::Justification::centred, false);
     juce::ignoreUnused (active);
 
     g.setColour (juce::Colour (0xff6c7078));
