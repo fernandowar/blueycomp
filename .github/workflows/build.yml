@@ -32,7 +32,9 @@ jobs:
 
       - name: Sign ad-hoc (macOS)
         if: runner.os == 'macOS'
-        run: codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
+        run: |
+          codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
+          codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component"
 
       - name: Package VST3 zip (Windows)
         if: runner.os == 'Windows'
@@ -46,19 +48,26 @@ jobs:
         run: |
           mkdir -p dist
           ditto -c -k --keepParent "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" "dist/${{ matrix.project }}-macOS-VST3.zip"
+          ditto -c -k --keepParent "build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component" "dist/${{ matrix.project }}-macOS-AU.zip"
 
       - name: Instalador macOS (.pkg)
         if: runner.os == 'macOS'
         continue-on-error: true
         run: |
           PLUGIN="build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
-          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 scripts installer
+          AU="build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component"
+          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 pkgroot/Library/Audio/Plug-Ins/Components scripts installer
           cp -R "$PLUGIN" pkgroot/Library/Audio/Plug-Ins/VST3/
+          cp -R "$AU" pkgroot/Library/Audio/Plug-Ins/Components/
           cat > scripts/postinstall <<'EOF'
           #!/bin/bash
           P="/Library/Audio/Plug-Ins/VST3/${{ matrix.product }}.vst3"
           xattr -cr "$P"
           codesign --force --deep -s - "$P" || true
+          A="/Library/Audio/Plug-Ins/Components/${{ matrix.product }}.component"
+          xattr -cr "$A"
+          codesign --force --deep -s - "$A" || true
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
           exit 0
           EOF
           chmod +x scripts/postinstall
@@ -93,7 +102,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.project }}-${{ matrix.name }}-VST3
-          path: dist/*.zip
+          path: dist/*VST3.zip
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: ${{ matrix.project }}-${{ matrix.name }}-AU
+          path: dist/*AU.zip
 
       - uses: actions/upload-artifact@v4
         with:

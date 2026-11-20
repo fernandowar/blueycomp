@@ -23,11 +23,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+if(APPLE)
+    set(PLUGIN_FORMATS VST3 AU)
+else()
+    set(PLUGIN_FORMATS VST3)
+endif()
+
 juce_add_plugin(DarkVCA
     COMPANY_NAME "Dark Shape Studios"
     PLUGIN_MANUFACTURER_CODE Dksh
     PLUGIN_CODE Dvca
-    FORMATS VST3
+    FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "Dark VCA"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
