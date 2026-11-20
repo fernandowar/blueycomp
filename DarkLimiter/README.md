@@ -12,7 +12,7 @@ Limitador / maximizador de **mastering** VST3 (Windows / macOS), pensado para ag
 
 Cadena de tres pasos (lookahead, detector enlazado en estéreo):
 
-1. **Etapa 1**: limitador lookahead 3 ms con release adaptable (2–25 ms), deja pasar +1 dB de picos a la etapa 2: rápido en transitorios, más largo en limitación sostenida. Sin clipping, transparente.
+1. **Etapa 1**: limitador de dos constantes de tiempo (lookahead 1.5 ms, release rápido que sigue el recorte necesario + cola lenta de 40 ms), ajustado contra el Ozone IRC II. Sin clipping, con True Peak.
 2. **Etapa 2** de seguridad (1 ms, True Peak) que fija el techo.
 3. **Etapa de seguridad** (lookahead 1 ms, release 40 ms) con detector True Peak: fija el techo.
 

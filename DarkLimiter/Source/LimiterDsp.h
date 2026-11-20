@@ -249,6 +249,234 @@ private:
 };
 
 //==============================================================================
+// Limitador de dos constantes de tiempo: la ganancia sigue de cerca el recorte necesario
+// (release rápido, conserva el cuerpo de los transitorios) y una cola lenta suaviza.
+class DualStage
+{
+public:
+    // lookaheadMs : ventana de ataque; relMinMs/relMaxMs : rango del release.
+    // Con relMin == relMax el release es fijo; con relMin < relMax se adapta al programa
+    // (transitorios aislados -> rápido, limitación sostenida -> lento).
+    void prepare (double sampleRate, float lookaheadMs, float relFastMs, float slowMs, float tailAmount)
+    {
+        sr = sampleRate;
+        la = std::max (2, (int) std::lround (lookaheadMs * 0.001 * sampleRate));
+        relMin = relMax = relFastMs;
+        slowCoeffMs = slowMs; beta = tailAmount;
+        avgCoeff = 1.0f - std::exp (-1.0f / (0.25f * (float) sampleRate)); // 250 ms
+
+        const int audioLen = la - 1 + kDetDelay + 2;
+        audio.assign ((size_t) audioLen * 2, 0.0f);
+        audioLenFrames = audioLen;
+
+        dqVal.assign ((size_t) la + 2, 1.0f);
+        dqIdx.assign ((size_t) la + 2, 0);
+        n1 = (la + 2) / 2; n2 = la + 1 - n1;
+        box.assign ((size_t) n1, 1.0f);
+        box2.assign ((size_t) n2, 1.0f);
+
+        reset();
+    }
+
+    void reset()
+    {
+        std::fill (audio.begin(), audio.end(), 0.0f);
+        std::fill (dqVal.begin(), dqVal.end(), 1.0f);
+        std::fill (dqIdx.begin(), dqIdx.end(), 0);
+        std::fill (box.begin(), box.end(), 1.0f);
+        std::fill (box2.begin(), box2.end(), 1.0f);
+        boxPos2 = 0; boxSum2 = (double) n2;
+        for (auto& v : hist) std::fill (v.begin(), v.end(), 0.0f);
+        histPos = 0;
+        dqHead = dqCount = 0;
+        t = 0;
+        e = 1.0f;
+        boxPos = 0;
+        boxSum = (double) n1;
+        audioPos = 0;
+        grAvgDb = 0.0f;
+        relCoeff = coeffForMs (relMin);
+        slowCoeff = coeffForMs (slowCoeffMs); s = 1.0f;
+        sinceCoeff = 0;
+        lastGain = 1.0f;
+    }
+
+    // Retardo total de la etapa en muestras
+    int latency() const { return la - 1 + kDetDelay; }
+
+    // Graves con release más lento (menos distorsión de modulación en graves).
+    // fc: frecuencia de corte; ms: release del gain de graves (0 = desactivado).
+    void setLowBandSlow (float fcHz, float ms)
+    {
+        lfOn = ms > 0.0f;
+        if (! lfOn) return;
+        const float K = std::tan (kPi * fcHz / (float) sr), Q = 0.70710678f;
+        const float n = 1.0f / (1.0f + K / Q + K * K);
+        lb0 = K * K * n; lb1 = 2.0f * lb0; lb2 = lb0;
+        la1 = 2.0f * (K * K - 1.0f) * n; la2 = (1.0f - K / Q + K * K) * n;
+        lfRel = coeffForMs (ms);
+        for (auto& s : lz) s[0] = s[1] = 0.0f;
+        gLF = 1.0f;
+    }
+
+    // Procesa un frame estéreo. 'ceiling' es lineal. Devuelve la salida retrasada y limitada.
+    void process (float inL, float inR, float ceiling, bool truePeak, float& outL, float& outR)
+    {
+        // 1. historial para el detector
+        histPos = (histPos + 1) & kHistMask;
+        hist[0][(size_t) histPos] = inL;
+        hist[1][(size_t) histPos] = inR;
+
+        // 2. detector: pico (muestral o True Peak aproximado con interpolación 4x)
+        float det = 0.0f;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            det = std::max (det, std::abs (h (ch, kDetDelay)));
+            if (truePeak)
+            {
+                for (int k = 0; k < 3; ++k)
+                {
+                    float y = 0.0f;
+                    for (int j = 0; j < kTaps; ++j)
+                        y += h (ch, j) * kInterp[k][j];
+                    det = std::max (det, std::abs (y));
+                }
+            }
+        }
+
+        // pequeño margen (~0.18 dB) con True Peak: la interpolación es una estimación
+        const float cl = truePeak ? ceiling * 0.98f : ceiling;
+        const float gTarget = det > cl ? cl / det : 1.0f;
+
+        // 3. mínimo deslizante de las últimas 'la' muestras
+        while (dqCount > 0 && dqVal[(size_t) backIdx()] >= gTarget)
+            --dqCount;
+        const int ins = (dqHead + dqCount) % (int) dqVal.size();
+        dqVal[(size_t) ins] = gTarget;
+        dqIdx[(size_t) ins] = t;
+        ++dqCount;
+        while (dqIdx[(size_t) dqHead] <= t - la)
+        {
+            dqHead = (dqHead + 1) % (int) dqVal.size();
+            --dqCount;
+        }
+        const float m = dqVal[(size_t) dqHead];
+
+        // 4. release (ataque instantáneo hacia m, recuperación exponencial)
+        if (m < e)
+            e = m;
+        else
+            e += relCoeff * (m - e);
+
+        // cola lenta: seguidor lento de la envolvente rápida; la ganancia final mezcla ambas (en dB)
+        if (e < s) s = e; else s += slowCoeff * (e - s);
+        const float g = std::pow (e, 1.0f - beta) * std::pow (s, beta);
+
+        // 5. dos medias móviles en cascada (kernel triangular, ataque más suave)
+        boxSum += (double) g - (double) box[(size_t) boxPos];
+        box[(size_t) boxPos] = g;
+        boxPos = (boxPos + 1) % n1;
+        const float s1v = (float) (boxSum / (double) n1);
+        boxSum2 += (double) s1v - (double) box2[(size_t) boxPos2];
+        box2[(size_t) boxPos2] = s1v;
+        boxPos2 = (boxPos2 + 1) % n2;
+        const float a = (float) (boxSum2 / (double) n2);
+        lastGain = a;
+
+        // 6. audio retrasado: 'la - 1 + kDetDelay' muestras
+        const int len = audioLenFrames;
+        const int readPos = (audioPos + len - (la - 1 + kDetDelay)) % len;
+        audio[(size_t) audioPos * 2] = inL;
+        audio[(size_t) audioPos * 2 + 1] = inR;
+        const float dl = audio[(size_t) readPos * 2];
+        const float dr = audio[(size_t) readPos * 2 + 1];
+        audioPos = (audioPos + 1) % len;
+
+        if (lfOn)
+        {
+            // gain de graves: baja igual que 'a', pero recupera lento
+            if (a < gLF) gLF = a; else gLF += lfRel * (a - gLF);
+            const float d[2] = { dl, dr };
+            float o[2];
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                const float lp = lb0 * d[ch] + lz[ch][0];
+                lz[ch][0] = lb1 * d[ch] - la1 * lp + lz[ch][1];
+                lz[ch][1] = lb2 * d[ch] - la2 * lp;
+                o[ch] = d[ch] * a - lp * (a - gLF);
+            }
+            outL = o[0]; outR = o[1];
+        }
+        else
+        {
+            outL = dl * a;
+            outR = dr * a;
+        }
+        ++t;
+    }
+
+    float currentGain() const { return lastGain; }
+
+private:
+    static constexpr int kTaps = 24;
+    static constexpr int kDetDelay = 12; // retardo del detector (centro del FIR)
+    static constexpr int kHistMask = 31;
+
+    struct InterpTable
+    {
+        float v[3][kTaps];
+        InterpTable()
+        {
+            for (int k = 1; k <= 3; ++k)
+                for (int j = 0; j < kTaps; ++j)
+                {
+                    const float dt = (float) (kDetDelay - j) - 0.25f * (float) k;
+                    const float x = kPi * dt;
+                    const float sinc = std::abs (x) < 1.0e-6f ? 1.0f : std::sin (x) / x;
+                    const float w = 0.5f * (1.0f + std::cos (kPi * dt / 12.5f));
+                    v[k - 1][j] = sinc * w;
+                }
+        }
+        const float* operator[] (int k) const { return v[k]; }
+    };
+    static const InterpTable& interpTable()
+    {
+        static const InterpTable tbl;
+        return tbl;
+    }
+
+    float h (int ch, int back) const { return hist[(size_t) ch][(size_t) ((histPos - back) & kHistMask)]; }
+    int backIdx() const { return (dqHead + dqCount - 1) % (int) dqVal.size(); }
+    float coeffForMs (float ms) const { return 1.0f - std::exp (-1.0f / (0.001f * ms * (float) sr)); }
+
+    const InterpTable& kInterp = interpTable();
+
+    double sr = 44100.0;
+    int la = 64;
+    float relMin = 40.0f, relMax = 40.0f, slowCoeffMs = 30.0f, beta = 0.2f, slowCoeff = 0.0f, s = 1.0f;
+    float avgCoeff = 0.0f, relCoeff = 0.0f, grAvgDb = 0.0f;
+    int sinceCoeff = 0;
+
+    std::vector<float> audio;
+    int audioLenFrames = 1, audioPos = 0;
+
+    std::vector<float> dqVal;
+    std::vector<int> dqIdx;
+    int dqHead = 0, dqCount = 0;
+    long t = 0;
+
+    bool lfOn = false;
+    float lb0 = 0, lb1 = 0, lb2 = 0, la1 = 0, la2 = 0, lfRel = 0, gLF = 1.0f, lz[2][2] = {};
+    float e = 1.0f, lastGain = 1.0f;
+    std::vector<float> box, box2;
+    int boxPos = 0, boxPos2 = 0, n1 = 1, n2 = 1;
+    double boxSum = 0.0, boxSum2 = 0.0;
+
+    std::vector<float> hist[2] = { std::vector<float> (32, 0.0f), std::vector<float> (32, 0.0f) };
+    int histPos = 0;
+};
+
+//==============================================================================
 // LUFS de corto plazo (ventana de 3 s) con ponderación K, canales L/R con peso 1.
 class LufsShortTerm
 {

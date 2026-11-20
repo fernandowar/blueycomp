@@ -49,7 +49,7 @@ private:
     double sampleRate = 44100.0;
     int latencySamples = 0;
 
-    limdsp::LookaheadStage stage1;     // lookahead 2 ms, release adaptable 3-30 ms
+    limdsp::DualStage stage1;          // lookahead 1.5 ms, release rápido + cola lenta
     limdsp::LookaheadStage stage2;     // seguridad: 1 ms, True Peak, fija el techo
     limdsp::LufsShortTerm lufs;
 

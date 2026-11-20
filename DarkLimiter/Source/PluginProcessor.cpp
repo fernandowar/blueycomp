@@ -50,10 +50,11 @@ void DarkLimiterAudioProcessor::prepareToPlay (double sr, int)
 {
     sampleRate = sr;
 
-    // Etapa 1: limitador lookahead 4 ms (ataque suave, kernel triangular), release adaptable 3-40 ms (corto en transitorios,
-    //          más largo con limitación sostenida). Sin clipper, ya con True Peak y al techo final.
+    // Etapa 1: limitador de dos constantes de tiempo (lookahead 1.5 ms, release rápido 1 ms que sigue el
+    //          recorte necesario y conserva el cuerpo de los transitorios + cola lenta de 40 ms).
+    //          Ajustado contra el Ozone IRC II. Sin clipper, con True Peak y al techo final.
     // Etapa 2: lookahead 1 ms, release 30 ms: red de seguridad que casi no actúa.
-    stage1.prepare (sr, 4.0f, 3.0f, 40.0f);
+    stage1.prepare (sr, 1.5f, 1.0f, 40.0f, 0.2f);
     stage2.prepare (sr, 1.0f, 30.0f, 30.0f);
     lufs.prepare (sr);
 
