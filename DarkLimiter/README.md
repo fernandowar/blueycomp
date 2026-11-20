@@ -10,12 +10,13 @@ Limitador / maximizador de **mastering** VST3 (Windows / macOS), pensado para ag
 
 ## Cómo funciona
 
-Dos etapas en serie con lookahead:
+Cadena de tres pasos (lookahead, detector enlazado en estéreo):
 
-1. Etapa principal (lookahead 4 ms): release **dependiente del programa** (30 – 350 ms). Con transitorios aislados se suelta rápido; con limitación sostenida se suelta lento para no bombear los graves.
-2. Etapa de seguridad (lookahead 1 ms, release 40 ms) con detector True Peak: atrapa lo que quede y garantiza el techo.
+1. **Limitador de 3 bandas** (cruces a 120 Hz y 2.5 kHz), lookahead de 10 ms (ataque lento y suave) y release dependiente del programa en cada banda (graves más largo). Así un bombo no "agacha" a la voz ni a los platillos.
+2. **Clipper suave** (sobremuestreo 4x) que se lleva los últimos ~2 dB de picos sin bajar la ganancia: conserva la pegada de los transitorios y reduce el bombeo.
+3. **Etapa de seguridad** (lookahead 1 ms, release 40 ms) con detector True Peak: fija el techo.
 
-Latencia total: unas 230 muestras (se informa al host). Detector enlazado en estéreo.
+Latencia total: unas 570 muestras (se informa al host).
 
 ## Tipografías
 

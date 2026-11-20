@@ -149,9 +149,9 @@ public:
     float currentGain() const { return lastGain; }
 
 private:
-    static constexpr int kTaps = 12;
-    static constexpr int kDetDelay = 6; // retardo del detector (centro del FIR)
-    static constexpr int kHistMask = 15;
+    static constexpr int kTaps = 24;
+    static constexpr int kDetDelay = 12; // retardo del detector (centro del FIR)
+    static constexpr int kHistMask = 31;
 
     struct InterpTable
     {
@@ -164,7 +164,7 @@ private:
                     const float dt = (float) (kDetDelay - j) - 0.25f * (float) k;
                     const float x = kPi * dt;
                     const float sinc = std::abs (x) < 1.0e-6f ? 1.0f : std::sin (x) / x;
-                    const float w = 0.5f * (1.0f + std::cos (kPi * dt / 6.5f));
+                    const float w = 0.5f * (1.0f + std::cos (kPi * dt / 12.5f));
                     v[k - 1][j] = sinc * w;
                 }
         }
@@ -201,7 +201,7 @@ private:
     int boxPos = 0;
     double boxSum = 0.0;
 
-    std::vector<float> hist[2] = { std::vector<float> (16, 0.0f), std::vector<float> (16, 0.0f) };
+    std::vector<float> hist[2] = { std::vector<float> (32, 0.0f), std::vector<float> (32, 0.0f) };
     int histPos = 0;
 };
 
@@ -296,5 +296,197 @@ private:
     std::vector<double> ring = std::vector<double> (30, 0.0);
     int ringPos = 0, ringFill = 0;
     float lufs = -100.0f;
+};
+
+//==============================================================================
+// Crossover Linkwitz-Riley de 4º orden (2 x Butterworth de 2º orden)
+class LR4Split
+{
+public:
+    void prepare (double sampleRate, float freq)
+    {
+        const double K = std::tan (3.14159265358979323846 * (double) freq / sampleRate);
+        const double q = 0.70710678118654752440;
+        const double a0 = 1.0 + K / q + K * K;
+        a1 = 2.0 * (K * K - 1.0) / a0;
+        a2 = (1.0 - K / q + K * K) / a0;
+        lb0 = K * K / a0; lb1 = 2.0 * lb0; lb2 = lb0;
+        hb0 = 1.0 / a0;   hb1 = -2.0 * hb0; hb2 = hb0;
+        reset();
+    }
+    void reset() { for (auto& s : st) s = State(); }
+
+    // Separa x en grave (lo) y agudo (hi); ch = 0 / 1
+    void split (int ch, float x, float& lo, float& hi)
+    {
+        auto& s = st[ch];
+        const double l1 = tick (lb0, lb1, lb2, s.l1, (double) x);
+        const double l2 = tick (lb0, lb1, lb2, s.l2, l1);
+        const double h1 = tick (hb0, hb1, hb2, s.h1, (double) x);
+        const double h2 = tick (hb0, hb1, hb2, s.h2, h1);
+        lo = (float) l2;
+        hi = (float) h2;
+    }
+
+private:
+    struct Bq { double x1 = 0, x2 = 0, y1 = 0, y2 = 0; };
+    struct State { Bq l1, l2, h1, h2; };
+
+    double tick (double b0, double b1, double b2, Bq& z, double x) const
+    {
+        const double y = b0 * x + b1 * z.x1 + b2 * z.x2 - a1 * z.y1 - a2 * z.y2;
+        z.x2 = z.x1; z.x1 = x; z.y2 = z.y1; z.y1 = y;
+        return y;
+    }
+
+    double a1 = 0, a2 = 0, lb0 = 0, lb1 = 0, lb2 = 0, hb0 = 0, hb1 = 0, hb2 = 0;
+    State st[2];
+};
+
+//==============================================================================
+// Limitador multibanda (3 bandas) con un LookaheadStage por banda: los graves ya no
+// "agachan" a los agudos (menos bombeo). Cada banda tiene su propio release.
+class MultibandStage
+{
+public:
+    struct BandCfg { float relMin, relMax; };
+
+    void prepare (double sampleRate, float lookaheadMs, float xoverLow, float xoverHigh,
+                  const BandCfg cfg[3])
+    {
+        x1.prepare (sampleRate, xoverLow);
+        x2.prepare (sampleRate, xoverHigh);
+        x2lowComp.prepare (sampleRate, xoverHigh); // compensa la fase de la banda grave
+        for (int b = 0; b < 3; ++b)
+            band[b].prepare (sampleRate, lookaheadMs, cfg[b].relMin, cfg[b].relMax);
+    }
+
+    void reset()
+    {
+        x1.reset(); x2.reset(); x2lowComp.reset();
+        for (auto& b : band) b.reset();
+    }
+
+    int latency() const { return band[0].latency(); }
+
+    // ceilings: techo de cada banda (lineal)
+    void process (float inL, float inR, const float ceilings[3], float& outL, float& outR)
+    {
+        float sig[3][2];
+        const float in[2] = { inL, inR };
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            float lo, rest, mid, hi, lA, lB;
+            x1.split (ch, in[ch], lo, rest);
+            x2.split (ch, rest, mid, hi);
+            x2lowComp.split (ch, lo, lA, lB); // lA + lB = lo con la fase de x2
+            sig[0][ch] = lA + lB;
+            sig[1][ch] = mid;
+            sig[2][ch] = hi;
+        }
+        outL = outR = 0.0f;
+        gain = 1.0f;
+        for (int b = 0; b < 3; ++b)
+        {
+            float l, r;
+            band[b].process (sig[b][0], sig[b][1], ceilings[b], false, l, r);
+            outL += l;
+            outR += r;
+            minGain = b == 0 ? band[b].currentGain() : std::min (minGain, band[b].currentGain());
+        }
+        gain = minGain;
+    }
+
+    // Reducción "visible": la mayor de las tres bandas
+    float currentGain() const { return gain; }
+
+private:
+    LR4Split x1, x2, x2lowComp;
+    LookaheadStage band[3];
+    float gain = 1.0f, minGain = 1.0f;
+};
+
+//==============================================================================
+// Clipper suave con sobremuestreo 4x (FIR lineal de 65 taps). Recorta los picos
+// "pasando" por una curva suave en lugar de bajar la ganancia: conserva la pegada de los
+// transitorios y reduce el bombeo. Latencia: 16 muestras.
+class SoftClipper4x
+{
+public:
+    static constexpr int kLatency = 16;
+
+    SoftClipper4x()
+    {
+        // sinc con corte en 1/4 de la frecuencia de muestreo sobremuestreada (= Nyquist original)
+        for (int i = 0; i < kN; ++i)
+        {
+            const float m = (float) (i - kC);
+            const float x = kPi * m * 0.25f;
+            const float sinc = std::abs (x) < 1.0e-6f ? 1.0f : std::sin (x) / x;
+            const float w = 0.5f * (1.0f + std::cos (kPi * m / (float) (kC + 1)));
+            h[i] = 0.25f * sinc * w;
+        }
+        reset();
+    }
+
+    void reset()
+    {
+        for (auto& v : xin) std::fill (v, v + kXLen, 0.0f);
+        for (auto& v : cbuf) std::fill (v, v + kCLen, 0.0f);
+        xPos = 0; cPos = 0;
+    }
+
+    // ceiling lineal; knee 0..1 (fracción del techo donde empieza la curva)
+    void process (float inL, float inR, float ceiling, float kneeFrac, float& outL, float& outR)
+    {
+        const float in[2] = { inL, inR };
+        float out[2];
+        const float T = ceiling * kneeFrac;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            // entrada en el historial (polifásico: x[n-j])
+            xin[ch][xPos] = in[ch];
+            float up[4];
+            for (int p = 0; p < 4; ++p)
+            {
+                float y = 0.0f;
+                // y_up[4n+p] = 4 * sum_j h[4j+p] x[n-j]
+                for (int j = 0, i = p; i < kN; ++j, i += 4)
+                    y += h[i] * xin[ch][(xPos - j + kXLen) % kXLen];
+                up[p] = 4.0f * y;
+            }
+            // clip suave a 4x
+            for (int p = 0; p < 4; ++p)
+            {
+                const float a = std::abs (up[p]);
+                float v = up[p];
+                if (a > T)
+                {
+                    const float r = ceiling - T;
+                    v = (up[p] > 0.0f ? 1.0f : -1.0f) * (T + r * std::tanh ((a - T) / r));
+                }
+                cbuf[ch][(cPos + p) % kCLen] = v;
+            }
+            // decimación: filtra a 4x y toma la muestra 4n
+            float y = 0.0f;
+            const int m = (cPos + 0) % kCLen; // posición de la muestra 4n
+            for (int i = 0; i < kN; ++i)
+                y += h[i] * cbuf[ch][((m - i) % kCLen + kCLen) % kCLen];
+            out[ch] = y;
+        }
+        xPos = (xPos + 1) % kXLen;
+        cPos = (cPos + 4) % kCLen;
+        outL = out[0];
+        outR = out[1];
+    }
+
+private:
+    static constexpr int kN = 65, kC = 32;
+    static constexpr int kXLen = 32;       // >= 17 muestras de historial
+    static constexpr int kCLen = 128;      // >= 65 + 4
+    float h[kN];
+    float xin[2][kXLen];
+    float cbuf[2][kCLen];
+    int xPos = 0, cPos = 0;
 };
 } // namespace limdsp
