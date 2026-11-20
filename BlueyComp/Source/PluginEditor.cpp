@@ -250,26 +250,27 @@ void BlueyCompAudioProcessorEditor::buildTexture()
 
 void BlueyCompAudioProcessorEditor::resized()
 {
-    bigC = { 150.0f, 262.0f };
-    outC = { 360.0f, 262.0f };
+    bigC = { kBlueX * 0.5f, 252.0f };
+    outC = { kBlueCx, 290.0f };
 
-    compressKnob.setBounds (juce::Rectangle<float> (0, 0, 170, 170).withCentre (bigC).toNearestInt());
-    outputKnob.setBounds (juce::Rectangle<float> (0, 0, 100, 100).withCentre (outC).toNearestInt());
-    powerButton.setBounds ((int) kBlueCx - 20, 22, 40, 40);
+    compressKnob.setBounds (juce::Rectangle<float> (0, 0, 200, 200).withCentre (bigC).toNearestInt());
+    outputKnob.setBounds (juce::Rectangle<float> (0, 0, 92, 92).withCentre (outC).toNearestInt());
+    powerButton.setBounds ((int) kBlueCx - 18, 16, 36, 36);
 
-    meterArea = { kBlueCx - 100.0f, 158.0f, 200.0f, 14.0f };
+    meterArea = { kBlueCx - 100.0f, 110.0f, 200.0f, 14.0f };
 }
 
 void BlueyCompAudioProcessorEditor::timerCallback()
 {
     const float target = processor.gainReductionDb.load();
     grSmoothed += (target > grSmoothed ? 0.5f : 0.10f) * (target - grSmoothed);
-    repaint (juce::Rectangle<float> (kBlueX, 80.0f, kBlueW, 220.0f).toNearestInt());
+    repaint (juce::Rectangle<float> (kBlueX, 60.0f, kBlueW, 160.0f).toNearestInt());
 }
 
 void BlueyCompAudioProcessorEditor::drawKnobScale (juce::Graphics& g, juce::Point<float> c, float tickStart,
                                                    float majorLen, float minorLen, float labelRadius,
-                                                   const juce::StringArray& majors, int minorsBetween, float fontSize)
+                                                   const juce::StringArray& majors, int minorsBetween, float fontSize,
+                                                   juce::Colour colour)
 {
     const int n = majors.size();
     const int steps = (n - 1) * (minorsBetween + 1);
@@ -283,7 +284,7 @@ void BlueyCompAudioProcessorEditor::drawKnobScale (juce::Graphics& g, juce::Poin
 
         const auto p1 = polar (c, a, tickStart);
         const auto p2 = polar (c, a, tickStart + (major ? majorLen : minorLen));
-        g.setColour (ink);
+        g.setColour (colour);
         g.drawLine (p1.x, p1.y, p2.x, p2.y, major ? 1.8f : 1.1f);
 
         if (major)
@@ -387,30 +388,31 @@ void BlueyCompAudioProcessorEditor::paint (juce::Graphics& g)
 
     // Título sobre el panel azul (como "76A LIMITING AMPLIFIER")
     g.setColour (juce::Colours::white.withAlpha (0.55f));
-    g.fillRect (kBlueCx - 100.0f, 366.0f, 200.0f, 1.0f);
+    g.fillRect (kBlueCx - 100.0f, 376.0f, 200.0f, 1.0f);
     g.setFont (titleFont (20.0f).withExtraKerningFactor (0.06f));
     g.setColour (juce::Colour (0xff031a33).withAlpha (0.55f));
-    g.drawText ("BLUEY COMP", juce::Rectangle<float> (kBlueX, 383.0f, kBlueW, 34.0f), juce::Justification::centred, false);
+    g.drawText ("BLUEY COMP", juce::Rectangle<float> (kBlueX, 391.0f, kBlueW, 30.0f), juce::Justification::centred, false);
     g.setColour (juce::Colours::white);
-    g.drawText ("BLUEY COMP", juce::Rectangle<float> (kBlueX - 1.0f, 382.0f, kBlueW, 34.0f), juce::Justification::centred, false);
+    g.drawText ("BLUEY COMP", juce::Rectangle<float> (kBlueX - 1.0f, 390.0f, kBlueW, 30.0f), juce::Justification::centred, false);
     g.setColour (paleBlue);
     g.setFont (labelFont (12.0f).withExtraKerningFactor (0.2f));
-    g.drawText ("FET LIMITING AMPLIFIER", juce::Rectangle<float> (kBlueX, 418.0f, kBlueW, 18.0f),
+    g.drawText ("FET LIMITING AMPLIFIER", juce::Rectangle<float> (kBlueX, 424.0f, kBlueW, 18.0f),
                 juce::Justification::centred, false);
 
     // Perillas: escalas grabadas y nombres (tipografía Michroma)
-    drawKnobScale (g, bigC, 78.5f, 9.5f, 5.0f, 102.0f,
-                   { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, 1, 17.0f);
+    drawKnobScale (g, bigC, 92.0f, 11.0f, 6.0f, 119.0f,
+                   { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, 1, 19.0f, ink);
     g.setColour (ink);
-    g.setFont (titleFont (15.0f).withExtraKerningFactor (0.1f));
-    g.drawText ("COMPRESS", juce::Rectangle<float> (240.0f, 26.0f).withCentre ({ bigC.x, 418.0f }),
+    g.setFont (titleFont (17.0f).withExtraKerningFactor (0.1f));
+    g.drawText ("COMPRESS", juce::Rectangle<float> (260.0f, 28.0f).withCentre ({ bigC.x, 424.0f }),
                 juce::Justification::centred, false);
 
-    drawKnobScale (g, outC, 46.5f, 7.5f, 3.6f, 68.0f, { "-12", "-6", "0", "+6", "+12" }, 1, 13.0f);
-    g.setColour (ink);
-    g.setFont (titleFont (15.0f).withExtraKerningFactor (0.1f));
-    g.drawText ("OUTPUT", juce::Rectangle<float> (240.0f, 26.0f).withCentre ({ outC.x, 418.0f }),
-                juce::Justification::centred, false);
+    // OUTPUT sobre el panel azul, encima del título (escala en blanco)
+    drawKnobScale (g, outC, 42.0f, 7.0f, 3.4f, 63.0f, { "-12", "-6", "0", "+6", "+12" }, 1, 12.0f,
+                   juce::Colours::white.withAlpha (0.92f));
+    g.setColour (juce::Colours::white);
+    g.setFont (titleFont (13.0f).withExtraKerningFactor (0.1f));
+    g.drawText ("OUTPUT", juce::Rectangle<float> (kBlueX, 346.0f, kBlueW, 20.0f), juce::Justification::centred, false);
 
     g.setColour (juce::Colour (0xff4f545c));
     g.setFont (labelFont (11.0f).withExtraKerningFactor (0.25f));

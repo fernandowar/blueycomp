@@ -55,7 +55,8 @@ private:
     void timerCallback() override;
     void buildTexture();
     void drawKnobScale (juce::Graphics&, juce::Point<float> c, float tickStart, float majorLen, float minorLen,
-                        float labelRadius, const juce::StringArray& majors, int minorsBetween, float fontSize);
+                        float labelRadius, const juce::StringArray& majors, int minorsBetween, float fontSize,
+                        juce::Colour colour);
     void drawBarMeter (juce::Graphics&);
     void drawScrew (juce::Graphics&, juce::Point<float> c);
 
