@@ -18,6 +18,8 @@ jobs:
           - { os: macos-latest,   name: macOS,   project: DarkVCA,   product: "Dark VCA",   slug: dark-vca }
           - { os: windows-latest, name: Windows, project: DarkLimiter, product: "Dark Limiter", slug: dark-limiter }
           - { os: macos-latest,   name: macOS,   project: DarkLimiter, product: "Dark Limiter", slug: dark-limiter }
+          - { os: windows-latest, name: Windows, project: DarkLevel, product: "Dark Level", slug: dark-level }
+          - { os: macos-latest,   name: macOS,   project: DarkLevel, product: "Dark Level", slug: dark-level }
 
     steps:
       - uses: actions/checkout@v4
