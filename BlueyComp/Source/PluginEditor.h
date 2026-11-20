@@ -3,8 +3,9 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Estética 1176: frontal negro cepillado, perillas estriadas con tapa de aluminio,
-// escalas blancas y medidor de barras (gain reduction) con números.
+// Estética 1176 Rev A "blue stripe": frontal plateado cepillado con panel azul superior
+// (título + medidor de barras), perillas negras estriadas con tapa de aluminio y
+// escalas grabadas en negro.
 //==============================================================================
 namespace BlueyColours
 {
@@ -14,6 +15,8 @@ namespace BlueyColours
     static const juce::Colour ledOn    { 0xffff7a2f };
     static const juce::Colour ledOff   { 0xff15181d };
     static const juce::Colour cyan     { 0xff22c7e8 };
+    static const juce::Colour ink      { 0xff15181d }; // texto grabado sobre el frontal plateado
+    static const juce::Colour paleBlue { 0xffd2e6fa }; // texto claro sobre el panel azul
 }
 
 class BlueyLookAndFeel : public juce::LookAndFeel_V4

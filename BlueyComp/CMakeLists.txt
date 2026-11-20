@@ -35,6 +35,14 @@ juce_add_plugin(BlueyComp
     VST3_CATEGORIES Fx Dynamics
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+juce_add_binary_data(BlueyFonts
+    HEADER_NAME "BlueyFonts.h"
+    NAMESPACE BlueyFontData
+    SOURCES
+        Fonts/Michroma.ttf
+        Fonts/BarlowSemiBold.ttf
+        Fonts/BarlowMedium.ttf)
+
 target_sources(BlueyComp PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
@@ -46,6 +54,7 @@ target_compile_definitions(BlueyComp PUBLIC
 
 target_link_libraries(BlueyComp
     PRIVATE
+        BlueyFonts
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
