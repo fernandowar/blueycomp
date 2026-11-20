@@ -16,6 +16,8 @@ jobs:
           - { os: macos-latest,   name: macOS,   project: BlueyComp, product: "Bluey Comp", slug: bluey-comp }
           - { os: windows-latest, name: Windows, project: DarkVCA,   product: "Dark VCA",   slug: dark-vca }
           - { os: macos-latest,   name: macOS,   project: DarkVCA,   product: "Dark VCA",   slug: dark-vca }
+          - { os: windows-latest, name: Windows, project: DarkLimiter, product: "Dark Limiter", slug: dark-limiter }
+          - { os: macos-latest,   name: macOS,   project: DarkLimiter, product: "Dark Limiter", slug: dark-limiter }
 
     steps:
       - uses: actions/checkout@v4
