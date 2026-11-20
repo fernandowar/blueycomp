@@ -50,11 +50,11 @@ void DarkLimiterAudioProcessor::prepareToPlay (double sr, int)
 {
     sampleRate = sr;
 
-    // Etapa 1: limitador lookahead 3 ms, release adaptable 2-25 ms (corto en transitorios,
-    //          más largo con limitación sostenida). Sin clipper; deja pasar +1 dB a la etapa 2.
-    // Etapa 2: lookahead 1 ms, release 4 ms, True Peak: atrapa lo que quede y fija el techo.
-    stage1.prepare (sr, 3.0f, 2.0f, 25.0f);
-    stage2.prepare (sr, 1.0f, 4.0f, 4.0f);
+    // Etapa 1: limitador lookahead 4 ms (ataque suave, kernel triangular), release adaptable 3-40 ms (corto en transitorios,
+    //          más largo con limitación sostenida). Sin clipper, ya con True Peak y al techo final.
+    // Etapa 2: lookahead 1 ms, release 30 ms: red de seguridad que casi no actúa.
+    stage1.prepare (sr, 4.0f, 3.0f, 40.0f);
+    stage2.prepare (sr, 1.0f, 30.0f, 30.0f);
     lufs.prepare (sr);
 
     latencySamples = stage1.latency() + stage2.latency();
@@ -109,7 +109,7 @@ void DarkLimiterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         // limitador de dos etapas
         float a, b, wl, wr;
-        stage1.process (dryL * g, dryR * g, c * 1.1220f, false, a, b); // +1 dB: los picos pasan suaves a la etapa 2
+        stage1.process (dryL * g, dryR * g, c, truePeak, a, b);
         stage2.process (a, b, c, truePeak, wl, wr);
 
         // seguro final: nunca por encima del techo

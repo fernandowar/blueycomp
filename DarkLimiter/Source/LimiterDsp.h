@@ -37,7 +37,9 @@ public:
 
         dqVal.assign ((size_t) la + 2, 1.0f);
         dqIdx.assign ((size_t) la + 2, 0);
-        box.assign ((size_t) la, 1.0f);
+        n1 = (la + 2) / 2; n2 = la + 1 - n1;
+        box.assign ((size_t) n1, 1.0f);
+        box2.assign ((size_t) n2, 1.0f);
 
         reset();
     }
@@ -48,13 +50,15 @@ public:
         std::fill (dqVal.begin(), dqVal.end(), 1.0f);
         std::fill (dqIdx.begin(), dqIdx.end(), 0);
         std::fill (box.begin(), box.end(), 1.0f);
+        std::fill (box2.begin(), box2.end(), 1.0f);
+        boxPos2 = 0; boxSum2 = (double) n2;
         for (auto& v : hist) std::fill (v.begin(), v.end(), 0.0f);
         histPos = 0;
         dqHead = dqCount = 0;
         t = 0;
         e = 1.0f;
         boxPos = 0;
-        boxSum = (double) la;
+        boxSum = (double) n1;
         audioPos = 0;
         grAvgDb = 0.0f;
         relCoeff = coeffForMs (relMin);
@@ -64,6 +68,21 @@ public:
 
     // Retardo total de la etapa en muestras
     int latency() const { return la - 1 + kDetDelay; }
+
+    // Graves con release más lento (menos distorsión de modulación en graves).
+    // fc: frecuencia de corte; ms: release del gain de graves (0 = desactivado).
+    void setLowBandSlow (float fcHz, float ms)
+    {
+        lfOn = ms > 0.0f;
+        if (! lfOn) return;
+        const float K = std::tan (kPi * fcHz / (float) sr), Q = 0.70710678f;
+        const float n = 1.0f / (1.0f + K / Q + K * K);
+        lb0 = K * K * n; lb1 = 2.0f * lb0; lb2 = lb0;
+        la1 = 2.0f * (K * K - 1.0f) * n; la2 = (1.0f - K / Q + K * K) * n;
+        lfRel = coeffForMs (ms);
+        for (auto& s : lz) s[0] = s[1] = 0.0f;
+        gLF = 1.0f;
+    }
 
     // Procesa un frame estéreo. 'ceiling' es lineal. Devuelve la salida retrasada y limitada.
     void process (float inL, float inR, float ceiling, bool truePeak, float& outL, float& outR)
@@ -125,11 +144,15 @@ public:
             relCoeff = coeffForMs (ms);
         }
 
-        // 5. media móvil de longitud 'la' (suaviza el ataque)
+        // 5. dos medias móviles en cascada (kernel triangular, ataque más suave)
         boxSum += (double) e - (double) box[(size_t) boxPos];
         box[(size_t) boxPos] = e;
-        boxPos = (boxPos + 1) % la;
-        const float a = (float) (boxSum / (double) la);
+        boxPos = (boxPos + 1) % n1;
+        const float s1v = (float) (boxSum / (double) n1);
+        boxSum2 += (double) s1v - (double) box2[(size_t) boxPos2];
+        box2[(size_t) boxPos2] = s1v;
+        boxPos2 = (boxPos2 + 1) % n2;
+        const float a = (float) (boxSum2 / (double) n2);
         lastGain = a;
 
         // 6. audio retrasado: 'la - 1 + kDetDelay' muestras
@@ -141,8 +164,26 @@ public:
         const float dr = audio[(size_t) readPos * 2 + 1];
         audioPos = (audioPos + 1) % len;
 
-        outL = dl * a;
-        outR = dr * a;
+        if (lfOn)
+        {
+            // gain de graves: baja igual que 'a', pero recupera lento
+            if (a < gLF) gLF = a; else gLF += lfRel * (a - gLF);
+            const float d[2] = { dl, dr };
+            float o[2];
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                const float lp = lb0 * d[ch] + lz[ch][0];
+                lz[ch][0] = lb1 * d[ch] - la1 * lp + lz[ch][1];
+                lz[ch][1] = lb2 * d[ch] - la2 * lp;
+                o[ch] = d[ch] * a - lp * (a - gLF);
+            }
+            outL = o[0]; outR = o[1];
+        }
+        else
+        {
+            outL = dl * a;
+            outR = dr * a;
+        }
         ++t;
     }
 
@@ -196,10 +237,12 @@ private:
     int dqHead = 0, dqCount = 0;
     long t = 0;
 
+    bool lfOn = false;
+    float lb0 = 0, lb1 = 0, lb2 = 0, la1 = 0, la2 = 0, lfRel = 0, gLF = 1.0f, lz[2][2] = {};
     float e = 1.0f, lastGain = 1.0f;
-    std::vector<float> box;
-    int boxPos = 0;
-    double boxSum = 0.0;
+    std::vector<float> box, box2;
+    int boxPos = 0, boxPos2 = 0, n1 = 1, n2 = 1;
+    double boxSum = 0.0, boxSum2 = 0.0;
 
     std::vector<float> hist[2] = { std::vector<float> (32, 0.0f), std::vector<float> (32, 0.0f) };
     int histPos = 0;
