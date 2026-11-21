@@ -36,20 +36,6 @@ jobs:
           codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3"
           codesign --force --deep -s - "build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component"
 
-      - name: Package VST3 zip (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" -DestinationPath "dist/${{ matrix.project }}-Windows-VST3.zip"
-
-      - name: Package VST3 zip (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p dist
-          ditto -c -k --keepParent "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" "dist/${{ matrix.project }}-macOS-VST3.zip"
-          ditto -c -k --keepParent "build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component" "dist/${{ matrix.project }}-macOS-AU.zip"
-
       - name: Instalador macOS (.pkg)
         if: runner.os == 'macOS'
         continue-on-error: true
@@ -99,8 +85,102 @@ jobs:
           '@ | Set-Content -Path installer.iss -Encoding ASCII
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
+      - name: Payload para instalador combinado (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p payload/Library/Audio/Plug-Ins/VST3 payload/Library/Audio/Plug-Ins/Components
+          cp -R "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" payload/Library/Audio/Plug-Ins/VST3/
+          cp -R "build/${{ matrix.project }}_artefacts/Release/AU/${{ matrix.product }}.component" payload/Library/Audio/Plug-Ins/Components/
+          tar -czf payload-${{ matrix.project }}-macOS.tgz -C payload .
+
+      - name: Payload para instalador combinado (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path payload | Out-Null
+          Copy-Item -Recurse "build/${{ matrix.project }}_artefacts/Release/VST3/${{ matrix.product }}.vst3" payload/
+          Compress-Archive -Path "payload/${{ matrix.product }}.vst3" -DestinationPath "payload-${{ matrix.project }}-Windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payload-${{ matrix.project }}-${{ matrix.name }}
+          path: payload-*
+          retention-days: 3
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.project }}-${{ matrix.name }}-Installer
           path: installer/*
           if-no-files-found: warn
+
+  combined-mac:
+    name: Instalador combinado (macOS)
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: payload-*-macOS
+          path: payloads
+          merge-multiple: true
+      - name: Armar .pkg con todos los plugins (VST3 + AU)
+        run: |
+          mkdir -p pkgroot scripts installer
+          for f in payloads/payload-*-macOS.tgz; do tar -xzf "$f" -C pkgroot; done
+          cat > scripts/postinstall <<'EOF'
+          #!/bin/bash
+          for N in "Bluey Comp" "Dark VCA" "Dark Limiter" "Dark Level"; do
+            for P in "/Library/Audio/Plug-Ins/VST3/$N.vst3" "/Library/Audio/Plug-Ins/Components/$N.component"; do
+              [ -e "$P" ] || continue
+              xattr -cr "$P"
+              codesign --force --deep -s - "$P" || true
+            done
+          done
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          exit 0
+          EOF
+          chmod +x scripts/postinstall
+          pkgbuild --root pkgroot --scripts scripts \
+            --identifier com.darkshapestudios.all-plugins --version 1.0.0 \
+            --install-location / installer/DarkShape-Plugins-macOS-Installer.pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DarkShape-Plugins-macOS-Installer
+          path: installer/*
+
+  combined-win:
+    name: Instalador combinado (Windows)
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: payload-*-Windows
+          path: payloads
+          merge-multiple: true
+      - name: Armar .exe con todos los plugins
+        shell: pwsh
+        run: |
+          Get-ChildItem payloads -Filter *.zip | ForEach-Object { Expand-Archive $_.FullName -DestinationPath stage -Force }
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppName=Dark Shape Plugins
+          AppVersion=1.0.0
+          AppPublisher=Dark Shape Studios
+          DefaultDirName={commoncf64}\VST3
+          CreateAppDir=no
+          Uninstallable=no
+          PrivilegesRequired=admin
+          ArchitecturesInstallIn64BitMode=x64compatible
+          OutputDir=installer
+          OutputBaseFilename=DarkShape-Plugins-Windows-Installer
+          Compression=lzma
+          [Files]
+          Source: "stage\*"; DestDir: "{commoncf64}\VST3"; Flags: recursesubdirs ignoreversion
+          '@ | Set-Content -Path installer.iss -Encoding ASCII
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DarkShape-Plugins-Windows-Installer
+          path: installer/*
