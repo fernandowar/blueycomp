@@ -101,17 +101,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.project }}-${{ matrix.name }}-VST3
-          path: dist/*VST3.zip
-
-      - uses: actions/upload-artifact@v4
-        if: runner.os == 'macOS'
-        with:
-          name: ${{ matrix.project }}-${{ matrix.name }}-AU
-          path: dist/*AU.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
           name: ${{ matrix.project }}-${{ matrix.name }}-Installer
           path: installer/*
           if-no-files-found: warn
