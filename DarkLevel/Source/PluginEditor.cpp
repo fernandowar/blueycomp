@@ -382,7 +382,7 @@ void DarkLevelAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK LEVEL", 50, 28, 320, 36, juce::Justification::centredLeft);
     g.setColour (grey);
     g.setFont (labelFont (12.0f).withExtraKerningFactor (0.2f));
-    g.drawText ("GAIN STAGING", 52, 66, 300, 16, juce::Justification::centredLeft);
+    g.drawText ("GAIN STAGING  |  DARK SHAPE STUDIOS", 52, 66, 400, 16, juce::Justification::centredLeft);
 
     // placa empotrada detrás de la perilla
     g.setColour (juce::Colour (0xff0a0c0f));
@@ -414,7 +414,4 @@ void DarkLevelAudioProcessorEditor::paint (juce::Graphics& g)
                 juce::Rectangle<float> (meterBox.getCentreX() - 90.0f, 446.0f, 180.0f, 24.0f), juce::Justification::centred, false);
     juce::ignoreUnused (active);
 
-    g.setColour (juce::Colour (0xff6c7078));
-    g.setFont (labelFont (11.0f).withExtraKerningFactor (0.25f));
-    g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (50.0f, h - 36.0f, 260.0f, 16.0f), juce::Justification::centredLeft, false);
 }
