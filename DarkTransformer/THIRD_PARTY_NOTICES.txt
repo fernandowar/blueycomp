@@ -1,0 +1,40 @@
+Dark Transformer incluye software de terceros:
+
+1) NeuralAmpModelerCore (https://github.com/sdatkinson/NeuralAmpModelerCore)
+   y AudioDSPTools (https://github.com/sdatkinson/AudioDSPTools) - Licencia MIT:
+
+MIT License
+
+Copyright (c) 2023 Steven Atkinson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2) ResamplingContainer / LanczosResampler (de iPlug2, modificado por S. Atkinson) - Licencia zlib/iPlug2:
+   This software is provided 'as-is', without any express or implied warranty. Permission is granted to anyone
+   to use this software for any purpose, including commercial applications, and to alter it and redistribute it
+   freely, subject to the restrictions in https://github.com/iPlug2/iPlug2/blob/master/LICENSE.txt
+
+3) nlohmann/json (https://github.com/nlohmann/json) - Licencia MIT, Copyright (c) 2013-2025 Niels Lohmann.
+
+4) Eigen (https://eigen.tuxfamily.org) - Mozilla Public License 2.0. Se usa sin modificar; el código fuente
+   está disponible en https://gitlab.com/libeigen/eigen
+
+5) JUCE (https://juce.com) - según la licencia de JUCE del titular del proyecto.
+
+6) Tipografías Michroma y Barlow - SIL Open Font License (ver Fonts/*_OFL.txt).
