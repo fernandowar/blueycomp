@@ -20,6 +20,10 @@
 //                       medios-bajos y aire arriba
 //
 // A nivel bajo la ganancia es unitaria: el DRIVE cambia el color, no el volumen.
+//
+// Como un equipo real: L y R tienen tolerancias distintas de componentes y
+// cada canal deriva lento y por su cuenta (punto de trabajo, núcleo, ganancia),
+// así el color se mueve todo el tiempo y nunca queda estático.
 //==============================================================================
 namespace iron
 {
@@ -53,10 +57,23 @@ namespace iron
         inline float hp (float x) noexcept { return x - lp (x); }
     };
 
+    // Fuente aleatoria suave (random walk filtrado) para la deriva analógica
+    struct Drift
+    {
+        void prepare (double controlRate, float hz, juce::int64 seed);
+        float next() noexcept;
+
+        juce::Random rng;
+        float target = 0.0f, smooth1 = 0.0f, smooth2 = 0.0f, coeff = 0.0f;
+        int period = 1, counter = 0;
+    };
+
+    // Un canal. channelIndex 0 = L, 1 = R: cada uno tiene sus propias
+    // tolerancias de componentes y su propia deriva lenta.
     class Channel
     {
     public:
-        void prepare (double baseRate, double osRate);
+        void prepare (double baseRate, double osRate, int channelIndex);
         void reset();
 
         inline float processPre (float x) noexcept { return inHp.hp (x); }
@@ -64,7 +81,23 @@ namespace iron
         inline float processPost (float x) noexcept { return air.process (mud.process (weight.process (x))); }
 
     private:
+        void updateControl() noexcept;
+
+        static constexpr int kControlStep = 32;
+
         OnePole inHp, inCore, outCore, envelope, dcBlock;
         Biquad res, weight, mud, air;
+
+        int tol = 0;
+        double os = 192000.0;
+        float coreBaseHz = 110.0f, resBaseHz = 32000.0f;
+        Drift driftA, driftB, driftC;
+        int controlCounter = 0;
+
+        struct Current
+        {
+            float inDrive = 2.0f, inBias = 0.15f, classABias = 0.42f, classADrive = 0.75f,
+                  outAmount = 0.9f, gain = 1.0f;
+        } cur;
     };
 }

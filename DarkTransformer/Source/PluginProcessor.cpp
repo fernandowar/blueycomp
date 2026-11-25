@@ -60,8 +60,8 @@ void DarkTransformerAudioProcessor::prepareToPlay (double sr, int samplesPerBloc
     setLatencySamples (latency);
 
     const double osRate = sr * (double) (1 << kOversamplingOrder);
-    for (auto& c : channels)
-        c.prepare (sr, osRate);
+    for (int ch = 0; ch < 2; ++ch)
+        channels[(size_t) ch].prepare (sr, osRate, ch);
 
     dryBuffer.setSize (2, blockSize, false, true, false);
     driveGains.assign ((size_t) blockSize, 1.0f);

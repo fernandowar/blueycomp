@@ -76,6 +76,7 @@ private:
     iron::Channel analyser;
     std::array<float, 8> harmonicsDb {}; // índice 2..7 = H2..H7 en dBc
     float analysedDrive = -999.0f;
+    int analyseFrames = 0;
 
     float level = -100.0f, peakHold = -100.0f;
     int peakHoldFrames = 0;

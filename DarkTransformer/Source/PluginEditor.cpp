@@ -155,7 +155,7 @@ DarkTransformerAudioProcessorEditor::DarkTransformerAudioProcessorEditor (DarkTr
 
     bypassAttachment.sendInitialUpdate();
 
-    analyser.prepare (48000.0, 192000.0);
+    analyser.prepare (48000.0, 192000.0, 0);
     analyseHarmonics();
 
     setSize (kW, kH);
@@ -188,6 +188,7 @@ void DarkTransformerAudioProcessorEditor::analyseHarmonics()
 {
     const float drive = processor.apvts.getRawParameterValue ("drive")->load();
     analysedDrive = drive;
+    analyseFrames = 0;
     analyser.reset();
 
     // Seno de 1 kHz a -18 dBFS + DRIVE, procesado directo en la tasa 4x
@@ -222,7 +223,8 @@ void DarkTransformerAudioProcessorEditor::analyseHarmonics()
 void DarkTransformerAudioProcessorEditor::timerCallback()
 {
     const float drive = processor.apvts.getRawParameterValue ("drive")->load();
-    if (std::abs (drive - analysedDrive) > 0.05f)
+    // también se vuelve a medir cada ~0.4 s: la deriva analógica mueve los armónicos
+    if (std::abs (drive - analysedDrive) > 0.05f || ++analyseFrames >= 12)
     {
         analyseHarmonics();
         repaint (harmBox.expanded (2.0f).toNearestInt());
