@@ -6,7 +6,7 @@
 // Estética "hierro vintage": frontal verde martillado (hammertone), placa de
 // cobre con el título grabado, VU analógico de aguja para el nivel que entra
 // al transformador, perillas de baquelita con tapa de color, lámpara de
-// piloto para el IN y una placa de identificación para la captura.
+// piloto para el IN y una placa con las 6 voces (transformadores y preamps).
 // Tipografías incluidas en el plugin: Michroma (títulos) y Barlow (números).
 //==============================================================================
 namespace IronColours
@@ -38,13 +38,13 @@ public:
                            juce::Slider&) override;
 };
 
-// Lámpara de piloto (IN) o tecla color crema (CARGAR / ORIGINAL)
+// Lámpara de piloto (IN) o tecla marfil con LED para elegir la voz
 class IronButton : public juce::ToggleButton
 {
 public:
     enum class Style { lamp, key };
 
-    IronButton (const juce::String& text, Style s) : style (s)
+    IronButton (const juce::String& text = {}, Style s = Style::key) : style (s)
     {
         setButtonText (text);
         setClickingTogglesState (s == Style::lamp);
@@ -70,7 +70,6 @@ public:
 private:
     void timerCallback() override;
     void buildTexture();
-    void chooseModel();
     void drawScale (juce::Graphics&, juce::Point<float> c, float tickInner, float tickOuter, float labelRadius,
                     const juce::StringArray& labels, float fontSize);
     void drawKnobTitle (juce::Graphics&, float cx, float y, const juce::String& name, const juce::String& unit);
@@ -78,27 +77,24 @@ private:
     void drawHeader (juce::Graphics&);
     void drawTransformerSymbol (juce::Graphics&, juce::Rectangle<float> area, juce::Colour colour);
     void drawMeter (juce::Graphics&);
-    void drawModelPlate (juce::Graphics&);
+    void drawVoicePlate (juce::Graphics&);
 
     DarkTransformerAudioProcessor& processor;
 
     IronLookAndFeel laf;
     juce::Slider driveKnob, mixKnob, outputKnob;
     IronButton btnIn { "IN", IronButton::Style::lamp };
-    IronButton btnLoad { "CARGAR", IronButton::Style::key };
-    IronButton btnDefault { "ORIGINAL", IronButton::Style::key };
+    std::array<IronButton, iron::numVoices> voiceKeys;
 
     juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment;
     juce::ParameterAttachment bypassAttachment;
-
-    std::unique_ptr<juce::FileChooser> chooser;
+    juce::ParameterAttachment voiceAttachment;
 
     juce::Image texture;
     float needle = 0.0f;   // posición de la aguja (0..1)
     float peakHold = 0.0f; // LED de pico sobre 0 dBFS (decae)
-    juce::String shownModel, shownError;
 
     juce::Point<float> driveC, mixC, outC;
     juce::Rectangle<float> headerBox, meterBox, plateBox;

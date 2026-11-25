@@ -1,21 +1,21 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include <atomic>
-#include "TransformerModel.h"
+#include "IronEngine.h"
 
 //==============================================================================
-// Dark Transformer: saturación de transformador basada en una captura NAM.
-// DRIVE empuja la señal contra el "hierro" (con compensación automática de
-// nivel), MIX mezcla en paralelo (con el seco alineado en latencia) y
-// OUTPUT ajusta el volumen final.
+// Dark Transformer: transformadores de línea y preamps clásicos en DSP.
+// VOICE elige el equipo, DRIVE empuja la señal (con compensación automática
+// de nivel), MIX mezcla en paralelo con el seco alineado en latencia y
+// OUTPUT ajusta el volumen final. Oversampling 4x con filtros de fase lineal.
 //==============================================================================
-class DarkTransformerAudioProcessor : public juce::AudioProcessor,
-                                      private juce::Timer
+class DarkTransformerAudioProcessor : public juce::AudioProcessor
 {
 public:
     DarkTransformerAudioProcessor();
-    ~DarkTransformerAudioProcessor() override;
+    ~DarkTransformerAudioProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -42,42 +42,37 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    //==========================================================================
-    // Modelos (llamar solo desde el hilo de mensajes)
-    bool loadModelFile (const juce::File& file);  // captura .nam externa
-    void loadDefaultModel();                       // la incluida en el plugin (o el respaldo DSP)
-    const juce::String& getModelName() const { return modelName; }
-    bool isModelNeural() const { return modelNeural; }
-    const juce::String& getLastError() const { return lastError; }
-
     juce::AudioProcessorValueTreeState apvts;
 
-    // Pico (dBFS) que entra al transformador después del DRIVE, para los LEDs
+    // Pico (dBFS) que entra al transformador después del DRIVE, para el VU
     std::atomic<float> ironLevelDb { -100.0f };
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
-    void installModel (std::unique_ptr<TransformerModel> model);
-    void timerCallback() override;
 
-    double currentRate = 0.0;
-    int currentBlock = 0;
+    static constexpr int kOversamplingOrder = 2; // 2^2 = 4x
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampling;
+    std::array<iron::Channel, 2> channels;
 
-    // Intercambio sin bloqueos entre hilos: el de mensajes deja el modelo nuevo
-    // en `pending`, el de audio lo toma y deja el viejo en `retired`, y el
-    // timer lo borra fuera del hilo de audio.
-    TransformerModel* active = nullptr;
-    std::atomic<TransformerModel*> pending { nullptr };
-    std::atomic<TransformerModel*> retired { nullptr };
+    int blockSize = 0;
+    int latency = 0;
+    int currentVoice = 0;
 
-    juce::String modelName, lastError;
-    bool modelNeural = false;
+    // Cambio de voz sin clics: el procesado se funde al seco, se cambia y vuelve
+    int pendingVoice = -1;
+    float switchFade = 1.0f;   // 1 = voz sonando, 0 = solo seco
+    float switchStep = 0.0f;
 
     juce::AudioBuffer<float> dryBuffer;
     std::vector<float> driveGains;
+    std::array<std::vector<float>, 2> dryLine;
+    std::vector<float> gainLine; // la compensación del DRIVE también va retrasada
+    int linePos = 0;
+
     juce::SmoothedValue<float> driveGain, outputGain, mixAmt, activeAmt;
 
     std::atomic<float>* driveParam = nullptr;
+    std::atomic<float>* voiceParam = nullptr;
     std::atomic<float>* mixParam = nullptr;
     std::atomic<float>* outputParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;

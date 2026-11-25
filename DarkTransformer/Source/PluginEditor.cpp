@@ -163,22 +163,37 @@ void IronButton::paintButton (juce::Graphics& g, bool over, bool down)
         return;
     }
 
-    // Tecla color marfil
+    // Tecla color marfil con LED (la voz elegida queda hundida y con LED encendido)
+    const bool sel = getToggleState();
+    const bool pressed = down || sel;
     b = b.reduced (2.0f);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.7f), 5, { 0, down ? 1 : 3 }).drawForRectangle (g, b.toNearestInt());
-    const auto top    = down ? juce::Colour (0xffcfc4a6) : juce::Colour (0xfff4ecd4);
-    const auto bottom = down ? juce::Colour (0xffb3a886) : juce::Colour (0xffcdbf9a);
-    g.setGradientFill (juce::ColourGradient (over && ! down ? top.brighter (0.05f) : top, b.getX(), b.getY(),
+    juce::DropShadow (juce::Colours::black.withAlpha (0.7f), 5, { 0, pressed ? 1 : 3 }).drawForRectangle (g, b.toNearestInt());
+    const auto top    = pressed ? juce::Colour (0xffd9cfb2) : juce::Colour (0xfff4ecd4);
+    const auto bottom = pressed ? juce::Colour (0xffbcb08e) : juce::Colour (0xffcdbf9a);
+    g.setGradientFill (juce::ColourGradient (over && ! pressed ? top.brighter (0.05f) : top, b.getX(), b.getY(),
                                              bottom, b.getX(), b.getBottom(), false));
     g.fillRoundedRectangle (b, 2.0f);
     g.setColour (juce::Colour (0xff1a1610));
     g.drawRoundedRectangle (b, 2.0f, 1.2f);
-    g.setColour (juce::Colours::white.withAlpha (0.6f));
-    g.drawLine (b.getX() + 3.0f, b.getY() + 1.5f, b.getRight() - 3.0f, b.getY() + 1.5f, 1.0f);
+    if (! pressed)
+    {
+        g.setColour (juce::Colours::white.withAlpha (0.6f));
+        g.drawLine (b.getX() + 3.0f, b.getY() + 1.5f, b.getRight() - 3.0f, b.getY() + 1.5f, 1.0f);
+    }
+
+    const juce::Point<float> led (b.getX() + 11.0f, b.getCentreY() + (pressed ? 1.0f : 0.0f));
+    if (sel)
+    {
+        g.setColour (lamp.withAlpha (0.4f));
+        g.fillEllipse (led.x - 6.5f, led.y - 6.5f, 13.0f, 13.0f);
+    }
+    g.setColour (sel ? lamp : juce::Colour (0xff6a5a3a));
+    g.fillEllipse (led.x - 3.5f, led.y - 3.5f, 7.0f, 7.0f);
 
     g.setColour (juce::Colour (0xff2a241a));
-    g.setFont (numberFont (15.0f).withExtraKerningFactor (0.12f));
-    g.drawText (getButtonText(), b.translated (0.0f, down ? 1.0f : 0.0f), juce::Justification::centred, false);
+    g.setFont (numberFont (14.0f).withExtraKerningFactor (0.08f));
+    g.drawText (getButtonText(), b.withTrimmedLeft (18.0f).translated (0.0f, pressed ? 1.0f : 0.0f),
+                juce::Justification::centred, false);
 }
 
 //==============================================================================
@@ -188,7 +203,13 @@ DarkTransformerAudioProcessorEditor::DarkTransformerAudioProcessorEditor (DarkTr
       mixAttachment (p.apvts, "mix", mixKnob),
       outputAttachment (p.apvts, "output", outputKnob),
       bypassAttachment (*p.apvts.getParameter ("bypass"),
-                        [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); })
+                        [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); }),
+      voiceAttachment (*p.apvts.getParameter ("voice"),
+                       [this] (float v)
+                       {
+                           for (int i = 0; i < iron::numVoices; ++i)
+                               voiceKeys[(size_t) i].setToggleState (i == juce::roundToInt (v), juce::dontSendNotification);
+                       })
 {
     auto setupKnob = [this] (juce::Slider& s, double resetValue, juce::Colour cap)
     {
@@ -206,13 +227,19 @@ DarkTransformerAudioProcessorEditor::DarkTransformerAudioProcessorEditor (DarkTr
     setupKnob (outputKnob, 0.0, capGrey);
 
     btnIn.onClick = [this] { bypassAttachment.setValueAsCompleteGesture (btnIn.getToggleState() ? 0.0f : 1.0f); };
-    btnLoad.onClick = [this] { chooseModel(); };
-    btnDefault.onClick = [this] { processor.loadDefaultModel(); repaint(); };
     addAndMakeVisible (btnIn);
-    addAndMakeVisible (btnLoad);
-    addAndMakeVisible (btnDefault);
+
+    const auto names = iron::voiceNames();
+    for (int i = 0; i < iron::numVoices; ++i)
+    {
+        auto& k = voiceKeys[(size_t) i];
+        k.setButtonText (names[i]);
+        k.onClick = [this, i] { voiceAttachment.setValueAsCompleteGesture ((float) i); };
+        addAndMakeVisible (k);
+    }
 
     bypassAttachment.sendInitialUpdate();
+    voiceAttachment.sendInitialUpdate();
 
     buildTexture();
     setSize (kW, kH);
@@ -224,22 +251,6 @@ DarkTransformerAudioProcessorEditor::~DarkTransformerAudioProcessorEditor()
     driveKnob.setLookAndFeel (nullptr);
     mixKnob.setLookAndFeel (nullptr);
     outputKnob.setLookAndFeel (nullptr);
-}
-
-void DarkTransformerAudioProcessorEditor::chooseModel()
-{
-    chooser = std::make_unique<juce::FileChooser> ("Elegir captura de transformador",
-                                                   juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
-                                                   "*.nam");
-    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-                          [safe = juce::Component::SafePointer<DarkTransformerAudioProcessorEditor> (this)] (const juce::FileChooser& fc)
-                          {
-                              if (safe == nullptr) return;
-                              const auto file = fc.getResult();
-                              if (file != juce::File())
-                                  safe->processor.loadModelFile (file);
-                              safe->repaint();
-                          });
 }
 
 //==============================================================================
@@ -275,7 +286,7 @@ void DarkTransformerAudioProcessorEditor::resized()
 {
     headerBox = { 20.0f, 18.0f, 740.0f, 74.0f };
     meterBox  = { 40.0f, 118.0f, 330.0f, 200.0f };
-    plateBox  = { 430.0f, 392.0f, 310.0f, 140.0f };
+    plateBox  = { 420.0f, 384.0f, 326.0f, 156.0f };
     driveC = { 575.0f, 226.0f };
     mixC   = { 130.0f, 432.0f };
     outC   = { 300.0f, 432.0f };
@@ -285,8 +296,12 @@ void DarkTransformerAudioProcessorEditor::resized()
     outputKnob.setBounds (juce::Rectangle<float> (0, 0, 96, 96).withCentre (outC).toNearestInt());
 
     btnIn.setBounds (634, 22, 110, 66);
-    btnLoad.setBounds ((int) plateBox.getX() + 16, (int) plateBox.getBottom() - 50, 132, 36);
-    btnDefault.setBounds ((int) plateBox.getRight() - 148, (int) plateBox.getBottom() - 50, 132, 36);
+    for (int i = 0; i < iron::numVoices; ++i)
+    {
+        const int row = i / 3, col = i % 3;
+        voiceKeys[(size_t) i].setBounds ((int) plateBox.getX() + 16 + col * 100,
+                                         (int) plateBox.getY() + 30 + row * 64, 94, 36);
+    }
 }
 
 void DarkTransformerAudioProcessorEditor::timerCallback()
@@ -297,13 +312,6 @@ void DarkTransformerAudioProcessorEditor::timerCallback()
     needle += 0.22f * (target - needle);
     peakHold = level > 0.0f ? 1.0f : peakHold * 0.9f;
     repaint (meterBox.expanded (4.0f).toNearestInt());
-
-    if (processor.getModelName() != shownModel || processor.getLastError() != shownError)
-    {
-        shownModel = processor.getModelName();
-        shownError = processor.getLastError();
-        repaint();
-    }
 }
 
 //==============================================================================
@@ -420,7 +428,7 @@ void DarkTransformerAudioProcessorEditor::drawHeader (juce::Graphics& g)
     g.setFont (titleFont (25.0f).withExtraKerningFactor (0.06f));
     engraved (g, "DARK TRANSFORMER", { b.getX() + 96.0f, b.getY() + 10.0f, 520.0f, 34.0f }, juce::Justification::centredLeft, engrave);
     g.setFont (labelFont (12.0f).withExtraKerningFactor (0.3f));
-    engraved (g, "NEURAL IRON SATURATION", { b.getX() + 98.0f, b.getY() + 46.0f, 400.0f, 16.0f }, juce::Justification::centredLeft, engrave.withAlpha (0.85f));
+    engraved (g, "TRANSFORMER & PREAMP SATURATION", { b.getX() + 98.0f, b.getY() + 46.0f, 400.0f, 16.0f }, juce::Justification::centredLeft, engrave.withAlpha (0.85f));
 }
 
 void DarkTransformerAudioProcessorEditor::drawMeter (juce::Graphics& g)
@@ -526,7 +534,7 @@ void DarkTransformerAudioProcessorEditor::drawMeter (juce::Graphics& g)
     g.fillPath (glass);
 }
 
-void DarkTransformerAudioProcessorEditor::drawModelPlate (juce::Graphics& g)
+void DarkTransformerAudioProcessorEditor::drawVoicePlate (juce::Graphics& g)
 {
     const auto b = plateBox;
     juce::DropShadow (juce::Colours::black.withAlpha (0.7f), 10, { 0, 4 }).drawForRectangle (g, b.toNearestInt());
@@ -536,38 +544,24 @@ void DarkTransformerAudioProcessorEditor::drawModelPlate (juce::Graphics& g)
     g.setColour (copper);
     g.drawRoundedRectangle (b.reduced (3.0f), 3.0f, 1.4f);
 
-    for (auto pt : { juce::Point<float> (b.getX() + 12.0f, b.getY() + 12.0f), { b.getRight() - 12.0f, b.getY() + 12.0f } })
+    for (auto pt : { juce::Point<float> (b.getX() + 12.0f, b.getY() + 12.0f), { b.getRight() - 12.0f, b.getY() + 12.0f },
+                     { b.getX() + 12.0f, b.getBottom() - 12.0f }, { b.getRight() - 12.0f, b.getBottom() - 12.0f } })
     {
         g.setGradientFill (juce::ColourGradient (copperHi, pt.x - 2.0f, pt.y - 2.0f, copperLo, pt.x + 3.0f, pt.y + 3.0f, false));
         g.fillEllipse (pt.x - 3.5f, pt.y - 3.5f, 7.0f, 7.0f);
     }
 
-    g.setColour (creamDim);
     g.setFont (labelFont (11.0f).withExtraKerningFactor (0.3f));
-    g.drawText ("CAPTURA", juce::Rectangle<float> (b.getX(), b.getY() + 10.0f, b.getWidth(), 14.0f), juce::Justification::centred, false);
+    g.setColour (creamDim);
+    g.drawText ("TRANSFORMADOR", juce::Rectangle<float> (b.getX(), b.getY() + 10.0f, b.getWidth(), 14.0f), juce::Justification::centred, false);
+    g.drawText ("PREAMP", juce::Rectangle<float> (b.getX(), b.getY() + 74.0f, b.getWidth(), 14.0f), juce::Justification::centred, false);
 
-    const bool neural = processor.isModelNeural();
-    const auto tag = juce::Rectangle<float> (b.getX() + 16.0f, b.getY() + 34.0f, 48.0f, 26.0f);
-    g.setColour (neural ? lamp.withAlpha (0.16f) : juce::Colour (0xff1f1e1b));
-    g.fillRoundedRectangle (tag, 3.0f);
-    g.setColour (neural ? lamp : creamDim);
-    g.drawRoundedRectangle (tag, 3.0f, 1.0f);
-    g.setFont (numberFont (14.0f).withExtraKerningFactor (0.1f));
-    g.drawText (neural ? "NAM" : "DSP", tag, juce::Justification::centred, false);
-
-    g.setColour (neural ? lamp : cream);
-    g.setFont (numberFont (19.0f));
-    g.drawFittedText (processor.getModelName(),
-                      juce::Rectangle<float> (tag.getRight() + 12.0f, tag.getY(), b.getRight() - tag.getRight() - 28.0f, tag.getHeight()).toNearestInt(),
-                      juce::Justification::centredLeft, 1, 0.8f);
-
-    if (processor.getLastError().isNotEmpty())
+    // Líneas guía a los lados de cada rótulo
+    g.setColour (creamDim.withAlpha (0.35f));
+    for (float y : { b.getY() + 17.0f, b.getY() + 81.0f })
     {
-        g.setColour (juce::Colour (0xffff6a5a));
-        g.setFont (labelFont (12.0f));
-        g.drawFittedText (processor.getLastError(),
-                          juce::Rectangle<int> ((int) b.getX(), (int) b.getBottom() + 6, (int) b.getWidth(), 16),
-                          juce::Justification::centredLeft, 1, 0.8f);
+        g.drawLine (b.getX() + 26.0f, y, b.getCentreX() - 70.0f, y, 1.0f);
+        g.drawLine (b.getCentreX() + 70.0f, y, b.getRight() - 26.0f, y, 1.0f);
     }
 }
 
@@ -594,13 +588,13 @@ void DarkTransformerAudioProcessorEditor::paint (juce::Graphics& g)
     drawKnobTitle (g, mixC.x,   516.0f, "MIX", "%");
     drawKnobTitle (g, outC.x,   516.0f, "OUTPUT", "dB");
 
-    drawModelPlate (g);
+    drawVoicePlate (g);
 
     g.setColour (creamDim.withAlpha (0.8f));
     g.setFont (labelFont (11.0f).withExtraKerningFactor (0.3f));
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (44.0f, h - 30.0f, 260.0f, 16.0f),
                 juce::Justification::centredLeft, false);
     g.setColour (creamDim.withAlpha (0.5f));
-    g.drawText ("NAM CORE (MIT) - S. ATKINSON", juce::Rectangle<float> (w - 330.0f, h - 30.0f, 286.0f, 16.0f),
+    g.drawText ("ANALOG IRON DSP  -  4X OVERSAMPLING", juce::Rectangle<float> (w - 330.0f, h - 30.0f, 286.0f, 16.0f),
                 juce::Justification::centredRight, false);
 }

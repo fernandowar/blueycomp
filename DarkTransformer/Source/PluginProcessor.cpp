@@ -1,10 +1,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "DarkTransformerData.h"
 
 juce::AudioProcessorValueTreeState::ParameterLayout DarkTransformerAudioProcessor::createLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "voice", 1 }, "Voice", iron::voiceNames(), iron::steel));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "drive", 1 }, "Drive",
@@ -34,20 +36,10 @@ DarkTransformerAudioProcessor::DarkTransformerAudioProcessor()
       apvts (*this, nullptr, "PARAMS", createLayout())
 {
     driveParam  = apvts.getRawParameterValue ("drive");
+    voiceParam  = apvts.getRawParameterValue ("voice");
     mixParam    = apvts.getRawParameterValue ("mix");
     outputParam = apvts.getRawParameterValue ("output");
     bypassParam = apvts.getRawParameterValue ("bypass");
-
-    loadDefaultModel();
-    startTimerHz (4);
-}
-
-DarkTransformerAudioProcessor::~DarkTransformerAudioProcessor()
-{
-    stopTimer();
-    delete pending.exchange (nullptr);
-    delete retired.exchange (nullptr);
-    delete active;
 }
 
 bool DarkTransformerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -59,107 +51,35 @@ bool DarkTransformerAudioProcessor::isBusesLayoutSupported (const BusesLayout& l
 }
 
 //==============================================================================
-void DarkTransformerAudioProcessor::installModel (std::unique_ptr<TransformerModel> model)
-{
-    modelName = model->getName();
-    modelNeural = model->isNeural();
-
-    if (currentRate > 0.0)
-        model->prepare (currentRate, currentBlock);
-
-    if (active == nullptr)
-    {
-        active = model.release(); // todavía no hay audio corriendo
-    }
-    else
-    {
-        const int newLatency = model->getLatencySamples();
-        delete pending.exchange (model.release()); // si había otro esperando, nunca llegó al audio
-        setLatencySamples (newLatency);
-        return;
-    }
-    setLatencySamples (active->getLatencySamples());
-}
-
-bool DarkTransformerAudioProcessor::loadModelFile (const juce::File& file)
-{
-    if (! file.existsAsFile())
-    {
-        lastError = "No se encontró el archivo: " + file.getFileName();
-        return false;
-    }
-
-    juce::String error;
-    auto model = TransformerModel::fromNam (file.loadFileAsString(), file.getFileNameWithoutExtension(), error);
-    if (model == nullptr)
-    {
-        lastError = error;
-        return false;
-    }
-
-    lastError = {};
-    apvts.state.setProperty ("modelPath", file.getFullPathName(), nullptr);
-    installModel (std::move (model));
-    return true;
-}
-
-void DarkTransformerAudioProcessor::loadDefaultModel()
-{
-    apvts.state.setProperty ("modelPath", juce::String(), nullptr);
-    lastError = {};
-
-#if DT_EMBEDDED_MODEL
-    for (int i = 0; i < DarkTransformerData::namedResourceListSize; ++i)
-    {
-        const juce::String original (DarkTransformerData::originalFilenames[i]);
-        if (! original.endsWithIgnoreCase (".nam"))
-            continue;
-
-        int size = 0;
-        if (const char* data = DarkTransformerData::getNamedResource (DarkTransformerData::namedResourceList[i], size))
-        {
-            juce::String error;
-            auto model = TransformerModel::fromNam (juce::String::fromUTF8 (data, size), DT_EMBEDDED_MODEL_NAME, error);
-            if (model != nullptr)
-            {
-                installModel (std::move (model));
-                return;
-            }
-            lastError = error;
-        }
-    }
-#endif
-
-    installModel (TransformerModel::makeFallback());
-}
-
-void DarkTransformerAudioProcessor::timerCallback()
-{
-    delete retired.exchange (nullptr);
-}
-
-//==============================================================================
 void DarkTransformerAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
 {
-    currentRate = sr;
-    currentBlock = juce::jmax (1, samplesPerBlock);
+    blockSize = juce::jmax (1, samplesPerBlock);
 
-    // Aquí el audio está detenido: se puede ordenar sin carreras
-    if (auto* p = pending.exchange (nullptr))
+    // Filtros de media banda FIR de fase lineal: latencia entera y sin giro de
+    // fase, para que el MIX en paralelo no haga filtro peine
+    oversampling = std::make_unique<juce::dsp::Oversampling<float>> (
+        2, kOversamplingOrder, juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true, true);
+    oversampling->initProcessing ((size_t) blockSize);
+    latency = (int) std::lround (oversampling->getLatencyInSamples());
+    setLatencySamples (latency);
+
+    currentVoice = (int) voiceParam->load();
+    pendingVoice = -1;
+    switchFade = 1.0f;
+    switchStep = 0.0f;
+    const double osRate = sr * (double) (1 << kOversamplingOrder);
+    for (auto& c : channels)
     {
-        delete active;
-        active = p;
-    }
-    delete retired.exchange (nullptr);
-
-    if (active != nullptr)
-    {
-        active->prepare (sr, currentBlock);
-        setLatencySamples (active->getLatencySamples());
+        c.setVoice (currentVoice);
+        c.prepare (sr, osRate);
     }
 
-    dryBuffer.setSize (2, currentBlock, false, true, false);
-    driveGains.assign ((size_t) currentBlock, 1.0f);
+    dryBuffer.setSize (2, blockSize, false, true, false);
+    driveGains.assign ((size_t) blockSize, 1.0f);
+    for (auto& l : dryLine)
+        l.assign ((size_t) latency + 1, 0.0f);
+    gainLine.assign ((size_t) latency + 1, 1.0f);
+    linePos = 0;
 
     driveGain.reset (sr, 0.05);
     driveGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveParam->load()));
@@ -177,67 +97,100 @@ void DarkTransformerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
 
     const int numCh = juce::jmin (buffer.getNumChannels(), 2);
     const int total = buffer.getNumSamples();
-    if (numCh == 0 || total == 0) return;
-
-    // ¿Hay un modelo nuevo? Se cambia solo si el anterior ya fue recogido
-    if (pending.load() != nullptr && retired.load() == nullptr)
-        if (auto* p = pending.exchange (nullptr))
-        {
-            retired.store (active);
-            active = p;
-        }
-
-    if (active == nullptr) return;
+    if (numCh == 0 || total == 0 || oversampling == nullptr) return;
 
     driveGain.setTargetValue (juce::Decibels::decibelsToGain (driveParam->load()));
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (outputParam->load()));
     mixAmt.setTargetValue (mixParam->load() * 0.01f);
     activeAmt.setTargetValue (bypassParam->load() > 0.5f ? 0.0f : 1.0f);
 
+    // Cambio de voz: primero se funde al seco (15 ms), luego se cambia y vuelve
+    const int wanted = (int) voiceParam->load();
+    const float fadeStep = 1.0f / (0.015f * (float) getSampleRate());
+    if (pendingVoice >= 0 && switchFade <= 0.0f)
+    {
+        currentVoice = pendingVoice;
+        pendingVoice = -1;
+        for (auto& c : channels)
+            c.setVoice (currentVoice);
+        switchStep = fadeStep;
+    }
+    if (wanted != currentVoice && wanted != pendingVoice)
+    {
+        pendingVoice = wanted;
+        switchStep = -fadeStep;
+    }
+
+    const int lineLen = latency + 1;
     float peak = 0.0f;
 
-    // Se procesa en trozos del tamaño preparado (algunos hosts mandan bloques más grandes)
-    for (int start = 0; start < total; start += currentBlock)
+    for (int start = 0; start < total; start += blockSize)
     {
-        const int n = juce::jmin (currentBlock, total - start);
+        const int n = juce::jmin (blockSize, total - start);
 
         float* io[2] = { buffer.getWritePointer (0, start),
                          buffer.getWritePointer (numCh > 1 ? 1 : 0, start) };
         float* dry[2] = { dryBuffer.getWritePointer (0), dryBuffer.getWritePointer (1) };
 
-        // 1) copia del seco + DRIVE hacia el transformador
+        // 1) seco, DRIVE y corte de graves del transformador de entrada
         for (int i = 0; i < n; ++i)
         {
             const float g = driveGain.getNextValue();
             driveGains[(size_t) i] = g;
             for (int ch = 0; ch < numCh; ++ch)
             {
-                dry[ch][i] = io[ch][i];
-                io[ch][i] *= g;
-                peak = juce::jmax (peak, std::abs (io[ch][i]));
+                const float in = io[ch][i];
+                dry[ch][i] = in;
+                io[ch][i] = channels[(size_t) ch].processPre (in * g);
+                peak = juce::jmax (peak, std::abs (in * g));
             }
         }
 
-        // 2) el transformador (captura NAM o respaldo DSP)
-        active->process (io, numCh, n);
+        // 2) núcleo, etapa de ganancia y trafo de salida a 4x
+        {
+            juce::dsp::AudioBlock<float> block (io, (size_t) numCh, (size_t) n);
+            auto up = oversampling->processSamplesUp (block);
+            for (size_t ch = 0; ch < up.getNumChannels(); ++ch)
+            {
+                auto* d = up.getChannelPointer (ch);
+                auto& engine = channels[ch];
+                for (size_t i = 0; i < up.getNumSamples(); ++i)
+                    d[i] = engine.processOversampled (d[i]);
+            }
+            oversampling->processSamplesDown (block);
+        }
 
-        // 3) seco alineado con la latencia del camino húmedo
-        active->delayDry (dry, numCh, n);
-
-        // 4) compensación del DRIVE, MIX, OUTPUT y bypass sin clics
+        // 3) EQ de personalidad, compensación, MIX alineado, OUTPUT y bypass
         for (int i = 0; i < n; ++i)
         {
-            const float invDrive = 1.0f / driveGains[(size_t) i];
+            const int readPos = (linePos + 1) % lineLen;
+            gainLine[(size_t) linePos] = driveGains[(size_t) i];
+            const float invDrive = 1.0f / gainLine[(size_t) readPos];
+
             const float mix = mixAmt.getNextValue();
             const float out = outputGain.getNextValue();
             const float act = activeAmt.getNextValue();
+
+            if (switchStep != 0.0f)
+            {
+                switchFade = juce::jlimit (0.0f, 1.0f, switchFade + switchStep);
+                if (switchFade >= 1.0f && switchStep > 0.0f) switchStep = 0.0f;
+            }
+
             for (int ch = 0; ch < numCh; ++ch)
             {
-                const float d = dry[ch][i];
-                const float w = io[ch][i] * invDrive;
+                auto& line = dryLine[(size_t) ch];
+                line[(size_t) linePos] = dry[ch][i];
+                const float d = line[(size_t) readPos];
+
+                float w = channels[(size_t) ch].processPost (io[ch][i]) * invDrive;
+                w = std::isfinite (w) ? w : 0.0f;
+                w = d + switchFade * (w - d);
+
                 const float processed = (d + mix * (w - d)) * out;
                 io[ch][i] = d + act * (processed - d);
             }
+            linePos = readPos;
         }
     }
 
@@ -258,19 +211,9 @@ void DarkTransformerAudioProcessor::getStateInformation (juce::MemoryBlock& dest
 
 void DarkTransformerAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    auto xml = getXmlFromBinary (data, sizeInBytes);
-    if (xml == nullptr || ! xml->hasTagName (apvts.state.getType()))
-        return;
-
-    const juce::String previousPath = apvts.state.getProperty ("modelPath").toString();
-    apvts.replaceState (juce::ValueTree::fromXml (*xml));
-    const juce::String path = apvts.state.getProperty ("modelPath").toString();
-
-    if (path == previousPath && (path.isNotEmpty() || active != nullptr))
-        return;
-
-    if (path.isEmpty() || ! loadModelFile (juce::File (path)))
-        loadDefaultModel(); // si la captura externa ya no está, vuelve a la incluida
+    if (auto xml = getXmlFromBinary (data, sizeInBytes))
+        if (xml->hasTagName (apvts.state.getType()))
+            apvts.replaceState (juce::ValueTree::fromXml (*xml));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
