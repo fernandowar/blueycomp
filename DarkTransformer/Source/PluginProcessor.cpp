@@ -5,9 +5,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTransformerAudioProcesso
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { "voice", 1 }, "Voice", iron::voiceNames(), iron::steel));
-
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "drive", 1 }, "Drive",
         juce::NormalisableRange<float> (-12.0f, 24.0f, 0.1f), 0.0f,
@@ -36,7 +33,6 @@ DarkTransformerAudioProcessor::DarkTransformerAudioProcessor()
       apvts (*this, nullptr, "PARAMS", createLayout())
 {
     driveParam  = apvts.getRawParameterValue ("drive");
-    voiceParam  = apvts.getRawParameterValue ("voice");
     mixParam    = apvts.getRawParameterValue ("mix");
     outputParam = apvts.getRawParameterValue ("output");
     bypassParam = apvts.getRawParameterValue ("bypass");
@@ -63,16 +59,9 @@ void DarkTransformerAudioProcessor::prepareToPlay (double sr, int samplesPerBloc
     latency = (int) std::lround (oversampling->getLatencyInSamples());
     setLatencySamples (latency);
 
-    currentVoice = (int) voiceParam->load();
-    pendingVoice = -1;
-    switchFade = 1.0f;
-    switchStep = 0.0f;
     const double osRate = sr * (double) (1 << kOversamplingOrder);
     for (auto& c : channels)
-    {
-        c.setVoice (currentVoice);
         c.prepare (sr, osRate);
-    }
 
     dryBuffer.setSize (2, blockSize, false, true, false);
     driveGains.assign ((size_t) blockSize, 1.0f);
@@ -103,23 +92,6 @@ void DarkTransformerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (outputParam->load()));
     mixAmt.setTargetValue (mixParam->load() * 0.01f);
     activeAmt.setTargetValue (bypassParam->load() > 0.5f ? 0.0f : 1.0f);
-
-    // Cambio de voz: primero se funde al seco (15 ms), luego se cambia y vuelve
-    const int wanted = (int) voiceParam->load();
-    const float fadeStep = 1.0f / (0.015f * (float) getSampleRate());
-    if (pendingVoice >= 0 && switchFade <= 0.0f)
-    {
-        currentVoice = pendingVoice;
-        pendingVoice = -1;
-        for (auto& c : channels)
-            c.setVoice (currentVoice);
-        switchStep = fadeStep;
-    }
-    if (wanted != currentVoice && wanted != pendingVoice)
-    {
-        pendingVoice = wanted;
-        switchStep = -fadeStep;
-    }
 
     const int lineLen = latency + 1;
     float peak = 0.0f;
@@ -160,7 +132,7 @@ void DarkTransformerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
             oversampling->processSamplesDown (block);
         }
 
-        // 3) EQ de personalidad, compensación, MIX alineado, OUTPUT y bypass
+        // 3) curva de profundidad, compensación, MIX alineado, OUTPUT y bypass
         for (int i = 0; i < n; ++i)
         {
             const int readPos = (linePos + 1) % lineLen;
@@ -171,12 +143,6 @@ void DarkTransformerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
             const float out = outputGain.getNextValue();
             const float act = activeAmt.getNextValue();
 
-            if (switchStep != 0.0f)
-            {
-                switchFade = juce::jlimit (0.0f, 1.0f, switchFade + switchStep);
-                if (switchFade >= 1.0f && switchStep > 0.0f) switchStep = 0.0f;
-            }
-
             for (int ch = 0; ch < numCh; ++ch)
             {
                 auto& line = dryLine[(size_t) ch];
@@ -185,7 +151,6 @@ void DarkTransformerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
 
                 float w = channels[(size_t) ch].processPost (io[ch][i]) * invDrive;
                 w = std::isfinite (w) ? w : 0.0f;
-                w = d + switchFade * (w - d);
 
                 const float processed = (d + mix * (w - d)) * out;
                 io[ch][i] = d + act * (processed - d);

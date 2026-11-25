@@ -6,10 +6,10 @@
 #include "IronEngine.h"
 
 //==============================================================================
-// Dark Transformer: transformadores de línea y preamps clásicos en DSP.
-// VOICE elige el equipo, DRIVE empuja la señal (con compensación automática
-// de nivel), MIX mezcla en paralelo con el seco alineado en latencia y
-// OUTPUT ajusta el volumen final. Oversampling 4x con filtros de fase lineal.
+// Dark Transformer: saturación de transformadores + preamp clase A en DSP,
+// un solo color. DRIVE empuja la señal (con compensación automática de
+// nivel), MIX mezcla en paralelo con el seco alineado en latencia y OUTPUT
+// ajusta el volumen final. Oversampling 4x con filtros de fase lineal.
 //==============================================================================
 class DarkTransformerAudioProcessor : public juce::AudioProcessor
 {
@@ -56,13 +56,6 @@ private:
 
     int blockSize = 0;
     int latency = 0;
-    int currentVoice = 0;
-
-    // Cambio de voz sin clics: el procesado se funde al seco, se cambia y vuelve
-    int pendingVoice = -1;
-    float switchFade = 1.0f;   // 1 = voz sonando, 0 = solo seco
-    float switchStep = 0.0f;
-
     juce::AudioBuffer<float> dryBuffer;
     std::vector<float> driveGains;
     std::array<std::vector<float>, 2> dryLine;
@@ -72,7 +65,6 @@ private:
     juce::SmoothedValue<float> driveGain, outputGain, mixAmt, activeAmt;
 
     std::atomic<float>* driveParam = nullptr;
-    std::atomic<float>* voiceParam = nullptr;
     std::atomic<float>* mixParam = nullptr;
     std::atomic<float>* outputParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;

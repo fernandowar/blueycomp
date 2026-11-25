@@ -133,14 +133,7 @@ DarkTransformerAudioProcessorEditor::DarkTransformerAudioProcessorEditor (DarkTr
       mixAttachment (p.apvts, "mix", mixKnob),
       outputAttachment (p.apvts, "output", outputKnob),
       bypassAttachment (*p.apvts.getParameter ("bypass"),
-                        [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); }),
-      voiceAttachment (*p.apvts.getParameter ("voice"),
-                       [this] (float v)
-                       {
-                           for (int i = 0; i < iron::numVoices; ++i)
-                               voiceButtons[(size_t) i].setToggleState (i == juce::roundToInt (v), juce::dontSendNotification);
-                           repaint();
-                       })
+                        [this] (float v) { btnIn.setToggleState (v < 0.5f, juce::dontSendNotification); })
 {
     auto setupKnob = [this] (juce::Slider& s, double resetValue, bool bipolar)
     {
@@ -160,18 +153,7 @@ DarkTransformerAudioProcessorEditor::DarkTransformerAudioProcessorEditor (DarkTr
     btnIn.onClick = [this] { bypassAttachment.setValueAsCompleteGesture (btnIn.getToggleState() ? 0.0f : 1.0f); };
     addAndMakeVisible (btnIn);
 
-    const auto names = iron::voiceNames();
-    for (int i = 0; i < iron::numVoices; ++i)
-    {
-        auto& b = voiceButtons[(size_t) i];
-        b.setButtonText (names[i]);
-        b.setClickingTogglesState (false);
-        b.onClick = [this, i] { voiceAttachment.setValueAsCompleteGesture ((float) i); };
-        addAndMakeVisible (b);
-    }
-
     bypassAttachment.sendInitialUpdate();
-    voiceAttachment.sendInitialUpdate();
 
     analyser.prepare (48000.0, 192000.0);
     analyseHarmonics();
@@ -189,21 +171,12 @@ DarkTransformerAudioProcessorEditor::~DarkTransformerAudioProcessorEditor()
 
 void DarkTransformerAudioProcessorEditor::resized()
 {
-    voiceCard = { 30.0f, 100.0f, 220.0f, 290.0f };
-    driveCard = { 266.0f, 100.0f, 316.0f, 290.0f };
-    sideCard  = { 598.0f, 100.0f, 172.0f, 290.0f };
-    harmBox   = { 30.0f, 406.0f, 360.0f, 82.0f };
-    meterBox  = { 406.0f, 406.0f, 364.0f, 82.0f };
+    harmBox   = { 30.0f, 100.0f, 236.0f, 290.0f };
+    driveCard = { 282.0f, 100.0f, 316.0f, 290.0f };
+    sideCard  = { 614.0f, 100.0f, 156.0f, 290.0f };
+    meterBox  = { 30.0f, 406.0f, 740.0f, 82.0f };
 
     btnIn.setBounds (kW - 140, 32, 110, 34);
-
-    // Voces: 3 transformadores arriba, 3 preamps abajo
-    for (int i = 0; i < iron::numVoices; ++i)
-    {
-        const int group = i / 3, idx = i % 3;
-        const int y = (int) voiceCard.getY() + 52 + group * 130 + idx * 34;
-        voiceButtons[(size_t) i].setBounds ((int) voiceCard.getX() + 22, y, (int) voiceCard.getWidth() - 44, 28);
-    }
 
     driveKnob.setBounds (juce::Rectangle<float> (0, 0, 190, 190).withCentre ({ driveCard.getCentreX(), driveCard.getY() + 132.0f }).toNearestInt());
     mixKnob.setBounds (juce::Rectangle<float> (0, 0, 84, 84).withCentre ({ sideCard.getCentreX(), sideCard.getY() + 56.0f }).toNearestInt());
@@ -213,12 +186,8 @@ void DarkTransformerAudioProcessorEditor::resized()
 //==============================================================================
 void DarkTransformerAudioProcessorEditor::analyseHarmonics()
 {
-    const int voice = (int) processor.apvts.getRawParameterValue ("voice")->load();
     const float drive = processor.apvts.getRawParameterValue ("drive")->load();
-    analysedVoice = voice;
     analysedDrive = drive;
-
-    analyser.setVoice (voice);
     analyser.reset();
 
     // Seno de 1 kHz a -18 dBFS + DRIVE, procesado directo en la tasa 4x
@@ -252,9 +221,8 @@ void DarkTransformerAudioProcessorEditor::analyseHarmonics()
 
 void DarkTransformerAudioProcessorEditor::timerCallback()
 {
-    const int voice = (int) processor.apvts.getRawParameterValue ("voice")->load();
     const float drive = processor.apvts.getRawParameterValue ("drive")->load();
-    if (voice != analysedVoice || std::abs (drive - analysedDrive) > 0.05f)
+    if (std::abs (drive - analysedDrive) > 0.05f)
     {
         analyseHarmonics();
         repaint (harmBox.expanded (2.0f).toNearestInt());
@@ -296,39 +264,47 @@ void DarkTransformerAudioProcessorEditor::drawReadout (juce::Graphics& g, juce::
 void DarkTransformerAudioProcessorEditor::drawHarmonics (juce::Graphics& g)
 {
     const auto b = harmBox;
+    drawCard (g, b, juce::String (juce::CharPointer_UTF8 ("ARM\xc3\x93NICOS")));
+
+    g.setColour (dim);
+    g.setFont (labelFont (10.0f).withExtraKerningFactor (0.2f));
+    g.drawText ("1 kHz  /  -18 dBFS + DRIVE", juce::Rectangle<float> (b.getX() + 16.0f, b.getY() + 26.0f, b.getWidth() - 32.0f, 14.0f),
+                juce::Justification::centredLeft, false);
+
+    // Pantalla con barras H2..H7: de -90 a -10 dBc. Pares en ámbar, impares en crema.
+    const auto scr = juce::Rectangle<float> (b.getX() + 14.0f, b.getY() + 48.0f, b.getWidth() - 28.0f, b.getHeight() - 62.0f);
     g.setColour (screen);
-    g.fillRoundedRectangle (b, 6.0f);
+    g.fillRoundedRectangle (scr, 6.0f);
+
+    const auto area = scr.reduced (12.0f, 0.0f).withTrimmedTop (30.0f).withTrimmedBottom (26.0f);
     g.setColour (line);
-    g.drawRoundedRectangle (b.reduced (0.5f), 6.0f, 1.0f);
+    for (int db : { -80, -60, -40, -20 })
+    {
+        const float y = area.getBottom() - area.getHeight() * ((float) db + 90.0f) / 80.0f;
+        g.drawHorizontalLine ((int) y, area.getX(), area.getRight());
+    }
 
-    g.setColour (grey);
-    g.setFont (labelFont (10.0f).withExtraKerningFactor (0.3f));
-    g.drawText (juce::String (juce::CharPointer_UTF8 ("ARM\xc3\x93NICOS  (1 kHz, -18 dBFS + DRIVE)")), b.withHeight (22.0f).reduced (12.0f, 0.0f), juce::Justification::centredLeft, false);
-
-    // Barras H2..H7: de -90 a -10 dBc. Pares en ámbar, impares en crema.
-    const auto area = juce::Rectangle<float> (b.getX() + 14.0f, b.getY() + 26.0f, b.getWidth() - 28.0f, b.getHeight() - 44.0f);
     const float slot = area.getWidth() / 6.0f;
     for (int h = 2; h <= 7; ++h)
     {
         const float db = harmonicsDb[(size_t) h];
         const float prop = juce::jlimit (0.0f, 1.0f, (db + 90.0f) / 80.0f);
         const float x = area.getX() + slot * (float) (h - 2);
-        const auto barArea = juce::Rectangle<float> (x + 6.0f, area.getY(), slot * 0.42f, area.getHeight());
-        g.setColour (track);
-        g.fillRoundedRectangle (barArea, 2.0f);
+        const auto barArea = juce::Rectangle<float> (x + slot * 0.2f, area.getY(), slot * 0.6f, area.getHeight());
         const auto col = (h % 2 == 0) ? accent : cream;
+        const auto bar = barArea.withTop (barArea.getBottom() - barArea.getHeight() * prop);
+        g.setColour (col.withAlpha (0.18f));
+        g.fillRoundedRectangle (bar.expanded (2.0f, 0.0f), 3.0f);
         g.setColour (col);
-        g.fillRoundedRectangle (barArea.withTop (barArea.getBottom() - barArea.getHeight() * prop), 2.0f);
+        g.fillRoundedRectangle (bar, 2.0f);
 
-        g.setColour (grey);
-        g.setFont (numberFont (11.0f));
-        g.drawText ("H" + juce::String (h), juce::Rectangle<float> (x, area.getBottom() + 2.0f, slot * 0.42f + 12.0f, 14.0f),
-                    juce::Justification::centred, false);
-        g.setColour (prop > 0.0f ? ink.withAlpha (0.85f) : dim);
+        g.setColour (prop > 0.0f ? ink.withAlpha (0.9f) : dim);
         g.setFont (numberFont (11.0f));
         g.drawText (prop > 0.0f ? juce::String (juce::roundToInt (db)) : juce::String ("--"),
-                    juce::Rectangle<float> (barArea.getRight() + 2.0f, area.getCentreY() - 8.0f, slot * 0.5f, 16.0f),
-                    juce::Justification::centredLeft, false);
+                    juce::Rectangle<float> (x, bar.getY() - 18.0f, slot, 14.0f), juce::Justification::centred, false);
+        g.setColour (grey);
+        g.drawText ("H" + juce::String (h), juce::Rectangle<float> (x, area.getBottom() + 6.0f, slot, 14.0f),
+                    juce::Justification::centred, false);
     }
 }
 
@@ -353,7 +329,7 @@ void DarkTransformerAudioProcessorEditor::drawMeter (juce::Graphics& g)
 
     // Barra segmentada
     const auto bar = juce::Rectangle<float> (b.getX() + 14.0f, b.getY() + 32.0f, b.getWidth() - 28.0f, 16.0f);
-    constexpr int segments = 42;
+    constexpr int segments = 72;
     const float segW = bar.getWidth() / (float) segments;
     for (int i = 0; i < segments; ++i)
     {
@@ -399,16 +375,8 @@ void DarkTransformerAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("TRANSFORMER & PREAMP SATURATION", 88, 63, 400, 16, juce::Justification::centredLeft);
 
     // Tarjetas
-    drawCard (g, voiceCard, "VOZ");
     drawCard (g, driveCard, {});
     drawCard (g, sideCard, {});
-
-    g.setColour (grey);
-    g.setFont (labelFont (10.0f).withExtraKerningFactor (0.3f));
-    g.drawText ("TRANSFORMADOR", juce::Rectangle<float> (voiceCard.getX() + 24.0f, voiceCard.getY() + 32.0f, 160.0f, 16.0f), juce::Justification::centredLeft, false);
-    g.drawText ("PREAMP", juce::Rectangle<float> (voiceCard.getX() + 24.0f, voiceCard.getY() + 162.0f, 160.0f, 16.0f), juce::Justification::centredLeft, false);
-    g.setColour (line);
-    g.drawLine (voiceCard.getX() + 20.0f, voiceCard.getY() + 156.0f, voiceCard.getRight() - 20.0f, voiceCard.getY() + 156.0f, 1.0f);
 
     // Lecturas de las perillas
     drawReadout (g, { driveCard.getCentreX(), driveCard.getY() + 246.0f }, signedDb (driveKnob.getValue()), "DRIVE", 22.0f);

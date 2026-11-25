@@ -6,7 +6,7 @@
 // GUI de la línea Dark (familia de Dark Limiter / Dark Level): fondo grafito,
 // tarjetas con borde fino, botones píldora con LED y acento propio en ámbar
 // cobrizo. Perilla grande de DRIVE con arco de valor, pantalla de armónicos
-// en vivo para la voz elegida y medidor de nivel que entra al hierro.
+// en vivo según el DRIVE y medidor del nivel que entra al hierro.
 //==============================================================================
 namespace TrColours
 {
@@ -66,24 +66,21 @@ private:
     TransformerLookAndFeel laf;
     juce::Slider driveKnob, mixKnob, outputKnob;
     TrButton btnIn { "IN" };
-    std::array<TrButton, iron::numVoices> voiceButtons;
 
     juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment;
     juce::ParameterAttachment bypassAttachment;
-    juce::ParameterAttachment voiceAttachment;
 
-    // Pantalla de armónicos: se mide la voz con un seno de 1 kHz a -18 dBFS + DRIVE
+    // Pantalla de armónicos: se mide el motor con un seno de 1 kHz a -18 dBFS + DRIVE
     iron::Channel analyser;
     std::array<float, 8> harmonicsDb {}; // índice 2..7 = H2..H7 en dBc
-    int analysedVoice = -1;
     float analysedDrive = -999.0f;
 
     float level = -100.0f, peakHold = -100.0f;
     int peakHoldFrames = 0;
 
-    juce::Rectangle<float> voiceCard, driveCard, sideCard, harmBox, meterBox;
+    juce::Rectangle<float> driveCard, sideCard, harmBox, meterBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkTransformerAudioProcessorEditor)
 };

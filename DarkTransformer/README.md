@@ -1,37 +1,26 @@
 # Dark Transformer
 
-Saturación de transformadores y preamps clásicos, VST3 / AU (Windows / macOS). Todo es DSP: no hay que cargar capturas ni archivos.
+Saturación de transformadores y preamp clase A, VST3 / AU (Windows / macOS). Tiene un solo color, pensado para dar peso, profundidad y contenido armónico. Es todo DSP: no hay que cargar nada ni elegir modelos.
 
 ## Controles
 
-- **Voz**: 6 equipos en dos grupos.
-  - Transformador:
-    - **NICKEL**: núcleo de níquel; abierto, rápido y sutil.
-    - **STEEL**: núcleo de acero; graves gordos que saturan antes y agudos redondeados.
-    - **VINTAGE**: línea vintage; pares temprano y después subida de 3er armónico.
-  - Preamp:
-    - **BRIT A**: clase A británico con transformadores de entrada y salida, graves y aire.
-    - **US DISC**: discreto americano con op-amp, codo más duro y medios al frente.
-    - **TUBE**: válvula; 2º armónico dominante y compresión suave por corriente de reja.
-- **Drive** (-12 a +24 dB): cuánto empujas el equipo. El nivel se compensa solo.
-- **Mix** (0-100 %): paralelo, con el seco alineado en latencia (sin filtro peine).
-- **Output** (-18 a +18 dB) y lámpara **IN** (bypass sin clics).
-- **VU "IRON"**: aguja con el pico que entra al equipo (-20 a +3 dBFS) y LED de PEAK sobre 0 dBFS.
+- **Drive** (-12 a +24 dB): cuánto empujas el circuito. El nivel se compensa solo.
+- **Mix** (0-100 %): mezcla en paralelo. El seco va alineado en latencia, así que no hace filtro peine.
+- **Output** (-18 a +18 dB) y botón **IN** (bypass sin clics).
+- **Armónicos**: pantalla en vivo con H2 a H7 para el Drive actual.
+- **Nivel al hierro**: medidor del pico que entra al circuito.
 
-## Cómo funciona
+## El circuito
 
 Por canal, en este orden:
 
-1. Corte de graves del transformador de entrada.
-2. Con oversampling 4x (filtros FIR de fase lineal):
-   - el núcleo, que satura más en graves, como el flujo magnético real;
-   - la etapa de ganancia (clase A, op-amp discreto o triodo);
-   - el transformador de salida;
-   - la resonancia de agudos.
-3. EQ con la personalidad del equipo.
+1. Pérdida de sub-graves del transformador de entrada.
+2. Con oversampling 4x (FIR de fase lineal):
+   1. transformador de entrada (el núcleo satura más en graves);
+   2. etapa clase A con sesgo que se mueve con la señal (2º armónico que "respira" con la dinámica);
+   3. segunda etapa simétrica (3er armónico al empujar);
+   4. transformador de salida;
+   5. resonancia de agudos.
+3. Curva de profundidad: +1 dB a 70 Hz, -0.6 dB a 350 Hz, +0.7 dB de aire desde 11 kHz.
 
-A nivel bajo la ganancia es unitaria, así que el Drive cambia el color y no el volumen. Cambiar de voz hace un fundido de 15 ms, sin clics. La latencia es de 61 muestras y se le informa al DAW. Usa poca CPU, como para ponerlo en todas las pistas.
-
-Las voces están *inspiradas* en esos tipos de equipos; no son capturas de unidades específicas.
-
-Se compila automático en GitHub Actions junto con los demás plugins.
+Con Drive en 0 y una señal a -18 dBFS, el 2º armónico queda en unos -34 dBc. Al subir el Drive aparecen el 3º, el 4º y el 5º. La latencia es de 61 muestras y se le informa al DAW.
