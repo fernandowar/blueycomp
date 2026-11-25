@@ -3,57 +3,43 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Estética "hierro vintage": frontal verde martillado (hammertone), placa de
-// cobre con el título grabado, VU analógico de aguja para el nivel que entra
-// al transformador, perillas de baquelita con tapa de color, lámpara de
-// piloto para el IN y una placa con las 6 voces (transformadores y preamps).
-// Tipografías incluidas en el plugin: Michroma (títulos) y Barlow (números).
+// GUI de la línea Dark (familia de Dark Limiter / Dark Level): fondo grafito,
+// tarjetas con borde fino, botones píldora con LED y acento propio en ámbar
+// cobrizo. Perilla grande de DRIVE con arco de valor, pantalla de armónicos
+// en vivo para la voz elegida y medidor de nivel que entra al hierro.
 //==============================================================================
-namespace IronColours
+namespace TrColours
 {
-    static const juce::Colour cream     { 0xffeee4c8 };
-    static const juce::Colour creamDim  { 0xffb9ad8e };
-    static const juce::Colour copperHi  { 0xffd89a5c };
-    static const juce::Colour copper    { 0xffb8743a };
-    static const juce::Colour copperLo  { 0xff6e4020 };
-    static const juce::Colour engrave   { 0xff2a170a };
-    static const juce::Colour panel     { 0xff22302d };
-    static const juce::Colour capRed    { 0xffb3261e };
-    static const juce::Colour capGrey   { 0xff7d8584 };
-    static const juce::Colour lamp      { 0xffffa02a };
+    static const juce::Colour bgTop  { 0xff181b21 };
+    static const juce::Colour bgBot  { 0xff0c0d10 };
+    static const juce::Colour panel  { 0xff14171c };
+    static const juce::Colour screen { 0xff0a0c10 };
+    static const juce::Colour line   { 0xff2a2f38 };
+    static const juce::Colour track  { 0xff252a32 };
+    static const juce::Colour ink    { 0xffeef1f6 };
+    static const juce::Colour grey   { 0xff8a92a0 };
+    static const juce::Colour dim    { 0xff4b5466 };
+    static const juce::Colour accent { 0xffff9a3c };
+    static const juce::Colour cream  { 0xffffe2bf };
 }
 
-class IronLookAndFeel : public juce::LookAndFeel_V4
+class TransformerLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     static constexpr float startAngle = juce::MathConstants<float>::pi * 1.25f;
     static constexpr float endAngle   = juce::MathConstants<float>::pi * 2.75f;
-
-    // Perilla de baquelita negra con tapa de color brillante
-    static void paintKnob (juce::Graphics& g, juce::Point<float> centre, float radius,
-                           float proportion, juce::Colour capColour);
 
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider&) override;
 };
 
-// Lámpara de piloto (IN) o tecla marfil con LED para elegir la voz
-class IronButton : public juce::ToggleButton
+// Botón píldora con LED (igual que en Dark Limiter, con el acento ámbar)
+class TrButton : public juce::ToggleButton
 {
 public:
-    enum class Style { lamp, key };
-
-    IronButton (const juce::String& text = {}, Style s = Style::key) : style (s)
-    {
-        setButtonText (text);
-        setClickingTogglesState (s == Style::lamp);
-    }
-
+    explicit TrButton (const juce::String& label = {}) { setButtonText (label); }
     void paintButton (juce::Graphics&, bool isMouseOver, bool isButtonDown) override;
-
-private:
-    Style style;
 };
 
 //==============================================================================
@@ -69,22 +55,18 @@ public:
 
 private:
     void timerCallback() override;
-    void buildTexture();
-    void drawScale (juce::Graphics&, juce::Point<float> c, float tickInner, float tickOuter, float labelRadius,
-                    const juce::StringArray& labels, float fontSize);
-    void drawKnobTitle (juce::Graphics&, float cx, float y, const juce::String& name, const juce::String& unit);
-    void drawScrew (juce::Graphics&, juce::Point<float> c);
-    void drawHeader (juce::Graphics&);
-    void drawTransformerSymbol (juce::Graphics&, juce::Rectangle<float> area, juce::Colour colour);
+    void analyseHarmonics();
+    void drawCard (juce::Graphics&, juce::Rectangle<float> r, const juce::String& title);
+    void drawReadout (juce::Graphics&, juce::Point<float> centre, const juce::String& value, const juce::String& name, float size);
+    void drawHarmonics (juce::Graphics&);
     void drawMeter (juce::Graphics&);
-    void drawVoicePlate (juce::Graphics&);
 
     DarkTransformerAudioProcessor& processor;
 
-    IronLookAndFeel laf;
+    TransformerLookAndFeel laf;
     juce::Slider driveKnob, mixKnob, outputKnob;
-    IronButton btnIn { "IN", IronButton::Style::lamp };
-    std::array<IronButton, iron::numVoices> voiceKeys;
+    TrButton btnIn { "IN" };
+    std::array<TrButton, iron::numVoices> voiceButtons;
 
     juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment;
@@ -92,12 +74,16 @@ private:
     juce::ParameterAttachment bypassAttachment;
     juce::ParameterAttachment voiceAttachment;
 
-    juce::Image texture;
-    float needle = 0.0f;   // posición de la aguja (0..1)
-    float peakHold = 0.0f; // LED de pico sobre 0 dBFS (decae)
+    // Pantalla de armónicos: se mide la voz con un seno de 1 kHz a -18 dBFS + DRIVE
+    iron::Channel analyser;
+    std::array<float, 8> harmonicsDb {}; // índice 2..7 = H2..H7 en dBc
+    int analysedVoice = -1;
+    float analysedDrive = -999.0f;
 
-    juce::Point<float> driveC, mixC, outC;
-    juce::Rectangle<float> headerBox, meterBox, plateBox;
+    float level = -100.0f, peakHold = -100.0f;
+    int peakHoldFrames = 0;
+
+    juce::Rectangle<float> voiceCard, driveCard, sideCard, harmBox, meterBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkTransformerAudioProcessorEditor)
 };
