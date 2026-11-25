@@ -5,7 +5,7 @@ Saturación de transformador VST3 / AU (Windows / macOS) basada en **Neural Amp 
 - **Drive** (-12 a +24 dB): cuánto empujas la señal contra el hierro. El nivel se compensa solo, así que subir el Drive cambia el color y no el volumen.
 - **Mix** (0-100 %): mezcla en paralelo. El seco va alineado con la latencia del camino procesado, así que no genera filtro peine.
 - **Output** (-18 a +18 dB) y botón **IN** (bypass sin clics).
-- **Nivel al hierro**: LEDs con el pico que entra al transformador (-18 / -12 / -6 / -3 / 0 / +3 dBFS).
+- **VU "IRON"**: aguja analógica con el pico que entra al transformador (-20 a +3 dBFS) y LED de PEAK sobre 0 dBFS.
 - **Captura**: el botón **CARGAR** abre cualquier `.nam` mono (por ejemplo una captura recién entrenada) y **ORIGINAL** vuelve a la que trae el plugin. La ruta queda guardada en la sesión.
 
 Si en `Models/` no hay ninguna captura, el plugin usa un **transformador DSP de respaldo** (indicador "DSP"). En cuanto se agrega un `.nam` a `Models/`, queda incluido dentro del plugin (indicador "NAM").
