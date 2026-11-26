@@ -192,8 +192,8 @@ void DarkTransformerAudioProcessorEditor::analyseHarmonics()
     analyser.reset();
 
     // Seno de 1 kHz a -18 dBFS + DRIVE, procesado directo en la tasa 4x
-    constexpr double os = 192000.0, f = 1000.0;
-    constexpr int period = 192, total = period * 150, measure = period * 50;
+    static constexpr double os = 192000.0, f = 1000.0;
+    static constexpr int period = 192, total = period * 150, measure = period * 50;
     const float amp = std::pow (10.0f, (-18.0f + drive) / 20.0f);
     std::vector<float> y ((size_t) measure);
     for (int i = 0; i < total; ++i)
