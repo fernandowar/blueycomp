@@ -186,3 +186,29 @@ jobs:
         with:
           name: DarkShape-Plugins-Windows-Installer
           path: installer/*
+
+  # Al subir un tag (por ejemplo plugins-2026-11-25) se crea un Release de
+  # GitHub con todos los instaladores: uno por plugin y los combinados.
+  release:
+    name: Publicar Release con los instaladores
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, combined-mac, combined-win]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-Installer"
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Dark Shape Plugins (${{ github.ref_name }})
+          body: |
+            Instaladores de los plugins de Dark Shape Studios.
+            - macOS: archivos .pkg (VST3 + AU)
+            - Windows: archivos .exe (VST3)
+            - DarkShape-Plugins: instalador combinado con todos los plugins
+          files: dist/*
