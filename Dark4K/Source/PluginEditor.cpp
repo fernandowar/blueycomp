@@ -456,8 +456,8 @@ void Dark4kAudioProcessorEditor::resized()
     // Centro
     btn ("bypass", 266, 14, 58, 32);
     chDisplay = { 372.0f, 14.0f, 216.0f, 34.0f };
-    place ("intrim", 437, 116, 23, 1.30f);
-    btn ("phase", 504, 92, 56, 36);
+    place ("intrim", 437, 108, 23, 1.30f);
+    btn ("phase", 504, 86, 56, 36);
     btn ("solo", 400, 284, 68, 62);
     btn ("cut", 492, 284, 68, 62);
     fader.setBounds (cX + 80, 372, 80, 430);
@@ -520,11 +520,12 @@ void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
             g.drawText (m.second, juce::Rectangle<float> (40.0f, 14.0f).withCentre (q), juce::Justification::centred, false);
         }
     }
-    float y = k.title.isNotEmpty() ? c.y + k.labelR * 0.72f + 9.0f : c.y + k.labelR * 0.95f + 8.0f;
+    const bool isTrim = k.slider.getName() == "intrim";
+    float y = (k.title.isNotEmpty() && ! isTrim) ? c.y + k.labelR * 0.72f + 9.0f : c.y + k.labelR * 0.95f + 9.0f;
     if (k.title.isNotEmpty())
     {
         g.setColour (juce::Colour (0xfff2f3f5));
-        g.setFont (headFont (13.0f).withExtraKerningFactor (0.03f));
+        g.setFont (headFont (isTrim ? 11.5f : 13.0f).withExtraKerningFactor (0.03f));
         g.drawText (k.title, juce::Rectangle<float> (110.0f, 16.0f).withCentre ({ c.x, y }), juce::Justification::centred, false);
         y += 13.0f;
     }
@@ -851,6 +852,6 @@ g.setColour (juce::Colour (0xff3a3c42));
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v3.6", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.7", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
