@@ -270,7 +270,8 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
                   [this] (float v) { btnAuto.setToggleState (v > 0.5f, juce::dontSendNotification); })
 {
     using M = std::vector<std::pair<double, juce::String>>;
-    const M gainMarks { { -15, "-15" }, { -10, "" }, { -5, "-5" }, { 0, "0" }, { 5, "5" }, { 10, "" }, { 15, "15" } };
+    const M gainMarks { { -15, "-15" }, { -12, "12" }, { -9, "9" }, { -6, "6" }, { -3, "3" }, { 0, "0" },
+                        { 3, "3" }, { 6, "6" }, { 9, "9" }, { 12, "12" }, { 15, "+15" } };
     const M qMarks { { 3.0, "3" }, { 2.5, "" }, { 2.0, "2" }, { 1.75, "" }, { 1.5, "1.5" }, { 1.25, "" }, { 1.0, "1" }, { 0.75, "" }, { 0.5, ".5" } };
 
     addKnob ("hpf", "", "Hz", white, 16.0, { { 16, "OUT" }, { 50, "50" }, { 100, "100" }, { 200, "200" }, { 350, "350" } });
@@ -421,8 +422,8 @@ void Dark4kAudioProcessorEditor::resized()
             {
                 k->slider.setBounds (juce::Rectangle<float> (R * 2.0f, R * 2.0f).withCentre ({ cx, cy }).toNearestInt());
                 const bool big = R0 >= 30.0f;
-                k->scaleR = R + (big ? 9.0f : 8.0f);
-                k->labelR = R + (big ? 20.0f : 17.0f);
+                k->scaleR = R * 1.18f + (big ? 3.0f : 0.0f);
+                k->labelR = R * 1.50f + (big ? 5.0f : 0.0f);
                 k->fontSize = big ? 11.0f : 10.0f;
             }
     };
@@ -434,15 +435,16 @@ void Dark4kAudioProcessorEditor::resized()
     using namespace Lay;
 
     // Izquierda: filtros + EQ
-    btn ("filtin", 172, 16, 62, 30);
-    place ("hpf", 76, 80, 27);  place ("lpf", 176, 124, 27);
-    btn ("hfbell", 172, 196, 62, 28);
-    place ("hfg", 74, 244, 21); place ("hff", 176, 282, 21);
-    place ("hmfg", 74, 384, 21); place ("hmff", 176, 422, 21); place ("hmfq", 74, 478, 21);
-    btn ("eqin", 108, 530, 64, 30);
-    place ("lmfg", 74, 616, 21); place ("lmff", 176, 652, 21); place ("lmfq", 74, 708, 21);
-    place ("lff", 176, 806, 21); place ("lfg", 74, 838, 21);
-    btn ("lfbell", 176, 852, 60, 24);
+    // Posiciones copiadas de la referencia (Waves SSL), escaladas a esta ventana
+    btn ("filtin", 150, 12, 60, 30);
+    place ("lpf", 68, 68, 21);  place ("hpf", 180, 112, 21);
+    btn ("hfbell", 150, 208, 60, 28);
+    place ("hfg", 68, 240, 21); place ("hff", 179, 298, 21);
+    place ("hmfg", 68, 367, 21); place ("hmff", 179, 422, 21); place ("hmfq", 68, 472, 21);
+    btn ("eqin", 127, 520, 64, 30);
+    place ("lmfg", 68, 593, 21); place ("lmff", 179, 647, 21); place ("lmfq", 68, 698, 21);
+    place ("lff", 179, 755, 21); place ("lfg", 68, 827, 21);
+    btn ("lfbell", 150, 840, 60, 28);
 
     // Centro
     btn ("bypass", 266, 14, 58, 32);
@@ -509,7 +511,7 @@ void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
             g.drawText (m.second, juce::Rectangle<float> (40.0f, 14.0f).withCentre (q), juce::Justification::centred, false);
         }
     }
-    float y = c.y + k.labelR * 0.72f + 9.0f;
+    float y = k.title.isNotEmpty() ? c.y + k.labelR * 0.72f + 9.0f : c.y + k.labelR * 0.95f + 8.0f;
     if (k.title.isNotEmpty())
     {
         g.setColour (juce::Colour (0xfff2f3f5));
@@ -517,7 +519,26 @@ void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
         g.drawText (k.title, juce::Rectangle<float> (110.0f, 16.0f).withCentre ({ c.x, y }), juce::Justification::centred, false);
         y += 13.0f;
     }
-    if (k.unit.isNotEmpty())
+    if (k.unit == "Q")
+    {
+        // iconos de campana: estrecha (izq) y ancha (der)
+        auto bell = [&] (float cx, float cy, float halfW, float hgt, float sig)
+        {
+            juce::Path p;
+            for (int i = 0; i <= 24; ++i)
+            {
+                const float t = -1.0f + 2.0f * (float) i / 24.0f;
+                const float px = cx + t * halfW, py = cy - hgt * std::exp (-(t * t) / (sig * sig));
+                if (i == 0) p.startNewSubPath (px, py); else p.lineTo (px, py);
+            }
+            g.setColour (juce::Colour (0xffc3c6cd));
+            g.strokePath (p, juce::PathStrokeType (1.2f));
+        };
+        const float iy = c.y + k.labelR * 0.95f + 8.0f;
+        bell (c.x - k.labelR * 0.55f, iy, 6.0f, 6.0f, 0.35f);
+        bell (c.x + k.labelR * 0.55f, iy, 8.0f, 5.0f, 0.75f);
+    }
+    else if (k.unit.isNotEmpty())
     {
         g.setColour (juce::Colour (0xff7e828b));
         g.setFont (labelFont (10.5f));
@@ -695,7 +716,7 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawImageAt (texture, 0, 0);
 
     // tornillos de rack
-    for (float y : { 14.0f, 604.0f, 872.0f })
+    for (float y : { 14.0f, 872.0f })
     {
         drawScrew (g, { 12.0f, y });
         drawScrew (g, { (float) kW - 12.0f, y });
@@ -716,30 +737,25 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
         g.setFont (headFont (size).withExtraKerningFactor (0.14f));
         g.drawText (t, juce::Rectangle<float> (x, y - 11.0f, 150.0f, 22.0f), juce::Justification::centredLeft, false);
     };
-    // llave tipo consola: linea con quiebre diagonal
-    auto bracket = [&] (float y, float x0, float x1, float rise)
+    // ---- Izquierda ----
+    // lineas escalonadas como la referencia: izquierda -> derecha con quiebre diagonal
+    auto stepLine = [&] (float yL, float yR, float xA, float xB)
     {
         juce::Path p;
-        p.startNewSubPath (x0, y);
-        p.lineTo (x0 + 70.0f, y);
-        p.lineTo (x0 + 70.0f + rise, y - rise);
-        p.lineTo (x1, y - rise);
+        p.startNewSubPath (10.0f, yL); p.lineTo (xA, yL); p.lineTo (xB, yR); p.lineTo (240.0f, yR);
         g.setColour (juce::Colour (0xff0a0b0d)); g.strokePath (p, juce::PathStrokeType (1.4f));
         g.setColour (juce::Colours::white.withAlpha (0.20f)); g.strokePath (p, juce::PathStrokeType (1.0f), juce::AffineTransform::translation (0.0f, 1.6f));
     };
-
-    // ---- Izquierda ----
-    label ("FILTERS", 14.0f, 176.0f);
-    groove (190.0f, 10.0f, 240.0f);
-    label ("HF", 14.0f, 300.0f);
-    bracket (338.0f, 10.0f, 240.0f, 0.0f);
-    label ("HMF", 14.0f, 444.0f);
-    groove (522.0f, 10.0f, 240.0f);
-    label ("EQ", 14.0f, 545.0f);
-    groove (570.0f, 10.0f, 240.0f);
-    label ("LMF", 14.0f, 680.0f);
-    bracket (768.0f, 10.0f, 240.0f, 16.0f);
-    label ("LF", 14.0f, 820.0f);
+    label ("FILTERS", 10.0f, 174.0f);
+    groove (191.0f, 6.0f, 244.0f);
+    label ("HF", 10.0f, 300.0f);
+    stepLine (315.0f, 359.0f, 117.0f, 142.0f);
+    label ("HMF", 10.0f, 430.0f);
+    label ("EQ", 10.0f, 537.0f);
+    groove (537.0f, 50.0f, 122.0f);
+    label ("LMF", 10.0f, 654.0f);
+    stepLine (765.0f, 723.0f, 108.0f, 136.0f);
+    label ("LF", 10.0f, 792.0f);
 
     // ---- Derecha ----
     label ("COMPRESS", 726.0f, 30.0f, 16.0f);
@@ -816,6 +832,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v3.0", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.1", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
