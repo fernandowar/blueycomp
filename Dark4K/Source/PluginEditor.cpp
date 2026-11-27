@@ -414,9 +414,9 @@ void Dark4kAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
 
 void Dark4kAudioProcessorEditor::resized()
 {
-    auto place = [this] (const char* id, float cx, float cy, float R0)
+    auto place = [this] (const char* id, float cx, float cy, float R0, float mul = 1.20f)
     {
-        const float R = R0 * 1.20f;   // tamano general de las perillas
+        const float R = R0 * mul;   // tamano general de las perillas
         for (auto& k : knobs)
             if (k->slider.getName() == id)
             {
@@ -437,13 +437,13 @@ void Dark4kAudioProcessorEditor::resized()
     // Izquierda: filtros + EQ
     // Posiciones copiadas de la referencia (Waves SSL), escaladas a esta ventana
     btn ("filtin", 150, 12, 60, 30);
-    place ("lpf", 68, 68, 21);  place ("hpf", 180, 112, 21);
+    place ("lpf", 68, 68, 21, 1.30f);  place ("hpf", 180, 112, 21, 1.30f);
     btn ("hfbell", 150, 208, 60, 28);
-    place ("hfg", 68, 240, 21); place ("hff", 179, 298, 21);
-    place ("hmfg", 68, 367, 21); place ("hmff", 179, 422, 21); place ("hmfq", 68, 472, 21);
+    place ("hfg", 68, 240, 21, 1.30f); place ("hff", 179, 298, 21, 1.30f);
+    place ("hmfg", 68, 367, 21, 1.30f); place ("hmff", 179, 422, 21, 1.30f); place ("hmfq", 68, 472, 21, 1.30f);
     btn ("eqin", 127, 520, 64, 30);
-    place ("lmfg", 68, 593, 21); place ("lmff", 179, 647, 21); place ("lmfq", 68, 698, 21);
-    place ("lff", 179, 770, 21); place ("lfg", 68, 827, 21);
+    place ("lmfg", 68, 593, 21, 1.30f); place ("lmff", 179, 636, 21, 1.30f); place ("lmfq", 68, 698, 21, 1.30f);
+    place ("lff", 179, 778, 21, 1.30f); place ("lfg", 68, 827, 21, 1.30f);
     btn ("lfbell", 150, 840, 60, 28);
 
     // Centro
@@ -832,6 +832,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v3.2", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.3", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
