@@ -4,16 +4,16 @@ on:
   push:
   workflow_dispatch:
 
-# Version de Dark 4K: al subir (2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 2.6 -> 2.7 -> 2.8 -> 2.9 -> 3.0 -> 3.1 -> 3.2 -> 3.3) cambiar "3.3"/"3.3.0" en este archivo,
-# en Dark4K/CMakeLists.txt y en el texto "v3.3" de Dark4K/Source/PluginEditor.cpp
+# Version de Dark 4K: al subir (2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 2.6 -> 2.7 -> 2.8 -> 2.9 -> 3.0 -> 3.1 -> 3.2 -> 3.3 -> 3.4) cambiar "3.4"/"3.4.0" en este archivo,
+# en Dark4K/CMakeLists.txt y en el texto "v3.4" de Dark4K/Source/PluginEditor.cpp
 
 jobs:
   build:
     name: ${{ matrix.project }} (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     env:
-      PNAME: ${{ matrix.project == 'Dark4K' && format('Dark4K-v{0}', '3.3') || matrix.project }}
-      PVER: ${{ matrix.project == 'Dark4K' && '3.3.0' || '1.0.0' }}
+      PNAME: ${{ matrix.project == 'Dark4K' && format('Dark4K-v{0}', '3.4') || matrix.project }}
+      PVER: ${{ matrix.project == 'Dark4K' && '3.4.0' || '1.0.0' }}
     strategy:
       fail-fast: false
       matrix:
@@ -151,11 +151,11 @@ jobs:
           EOF
           chmod +x scripts/postinstall
           pkgbuild --root pkgroot --scripts scripts \
-            --identifier com.darkshapestudios.all-plugins --version 3.3.0 \
-            --install-location / installer/DarkShape-Plugins-v3.3-macOS-Installer.pkg
+            --identifier com.darkshapestudios.all-plugins --version 3.4.0 \
+            --install-location / installer/DarkShape-Plugins-v3.4-macOS-Installer.pkg
       - uses: actions/upload-artifact@v4
         with:
-          name: DarkShape-Plugins-v3.3-macOS-Installer
+          name: DarkShape-Plugins-v3.4-macOS-Installer
           path: installer/*
 
   combined-win:
@@ -176,7 +176,7 @@ jobs:
           @'
           [Setup]
           AppName=Dark Shape Plugins
-          AppVersion=3.3.0
+          AppVersion=3.4.0
           AppPublisher=Dark Shape Studios
           DefaultDirName={commoncf64}\VST3
           CreateAppDir=no
@@ -184,7 +184,7 @@ jobs:
           PrivilegesRequired=admin
           ArchitecturesInstallIn64BitMode=x64compatible
           OutputDir=installer
-          OutputBaseFilename=DarkShape-Plugins-v3.3-Windows-Installer
+          OutputBaseFilename=DarkShape-Plugins-v3.4-Windows-Installer
           Compression=lzma
           [Files]
           Source: "stage\*"; DestDir: "{commoncf64}\VST3"; Flags: recursesubdirs ignoreversion
@@ -192,7 +192,7 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
       - uses: actions/upload-artifact@v4
         with:
-          name: DarkShape-Plugins-v3.3-Windows-Installer
+          name: DarkShape-Plugins-v3.4-Windows-Installer
           path: installer/*
 
   # Al subir un tag (por ejemplo plugins-2026-11-25) se crea un Release de

@@ -49,6 +49,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
         l.add (std::make_unique<F> (juce::ParameterID { "level", 1 }, "Fader", r, 0.0f, Attr().withLabel ("dB")));
     }
     sw ("bypass", "Bypass", false);
+    sw ("cut", "Cut", false);
 
     sw ("eqin", "EQ In", true);
     sw ("eqblack", "EQ Black", false);
@@ -95,7 +96,7 @@ Dark4kAudioProcessor::Dark4kAudioProcessor()
 {
     const char* ids[pCount] = { "intrim", "phase", "level", "bypass", "eqin", "eqblack", "filtin", "hpf", "lpf",
                                 "hfg", "hff", "hfbell", "hmfg", "hmff", "hmfq", "lmfg", "lmff", "lmfq", "lfg", "lff", "lfbell",
-                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange" };
+                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange", "cut" };
     for (int i = 0; i < pCount; ++i) prm[i] = apvts.getRawParameterValue (ids[i]);
 
     // Cada instancia nueva nace como un canal distinto de la consola
@@ -234,7 +235,7 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     inGain.setTargetValue (juce::Decibels::decibelsToGain (prm[pInTrim]->load() + v.trimDb));
     const float lvl = prm[pLevel]->load();
-    outGain.setTargetValue (lvl <= -79.5f ? 0.0f : juce::Decibels::decibelsToGain (lvl + v.outDb));
+    outGain.setTargetValue ((lvl <= -79.5f || prm[pCut]->load() > 0.5f) ? 0.0f : juce::Decibels::decibelsToGain (lvl + v.outDb));
     thresholdDb.setTargetValue (prm[pThr]->load() + v.thrDb);
     makeupGain.setTargetValue (juce::Decibels::decibelsToGain (prm[pMakeup]->load() + v.makeupDb));
     wetMix.setTargetValue (prm[pBypass]->load() > 0.5f ? 0.0f : 1.0f);

@@ -91,7 +91,7 @@ private:
     std::atomic<float>* prm[40] {};
     enum P { pInTrim, pPhase, pLevel, pBypass, pEqIn, pEqBlack, pFiltIn, pHpf, pLpf,
              pHfG, pHfF, pHfBell, pHmfG, pHmfF, pHmfQ, pLmfG, pLmfF, pLmfQ, pLfG, pLfF, pLfBell,
-             pDynIn, pThr, pAtk, pRel, pMakeup, pGateThr, pGateRange, pCount };
+             pDynIn, pThr, pAtk, pRel, pMakeup, pGateThr, pGateRange, pCut, pCount };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Dark4kAudioProcessor)
 };

@@ -295,6 +295,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
 
     const juce::Colour none = juce::Colours::transparentBlack;
     addToggle ("bypass", "PWR", none, true, true);
+    addToggle ("cut", "CUT", none, true);
     addToggle ("phase", juce::String::fromUTF8 ("\xc3\x98"), none, true);
     addToggle ("filtin", "IN", none, true);
     addToggle ("eqin", "IN", none, true);
@@ -449,9 +450,10 @@ void Dark4kAudioProcessorEditor::resized()
     // Centro
     btn ("bypass", 266, 14, 58, 32);
     chDisplay = { 372.0f, 14.0f, 216.0f, 34.0f };
-    place ("intrim", 450, 120, 34);
-    btn ("phase", 526, 98, 52, 40);
-    fader.setBounds (cX + 80, 296, 80, 530);
+    place ("intrim", 437, 116, 23, 1.30f);
+    btn ("phase", 504, 92, 56, 36);
+    btn ("cut", 394, 500, 68, 68);
+    fader.setBounds (cX + 120, 296, 80, 530);
     inMeterBox  = { 262.0f, 100.0f, 90.0f, 774.0f };
     outMeterBox = { 609.0f, 100.0f, 90.0f, 774.0f };
 
@@ -801,14 +803,25 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
         g.drawText ("CHANNEL", r.withTrimmedLeft (84.0f), juce::Justification::centredLeft, false);
     }
 
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.setFont (titleFont (31.0f).withExtraKerningFactor (0.1f));
-    g.drawText ("DARK 4K", juce::Rectangle<float> ((float) cX, 214.0f, (float) (cR - cX), 40.0f), juce::Justification::centred, false);
-    g.setColour (juce::Colours::white);
-    g.drawText ("DARK 4K", juce::Rectangle<float> ((float) cX, 212.0f, (float) (cR - cX), 40.0f), juce::Justification::centred, false);
-    g.setColour (juce::Colour (0xff8d919a));
-    g.setFont (headFont (12.5f).withExtraKerningFactor (0.36f));
-    g.drawText ("CHANNEL STRIP", juce::Rectangle<float> ((float) cX, 248.0f, (float) (cR - cX), 16.0f), juce::Justification::centred, false);
+    // placa del logo (hundida en el panel oscuro)
+    {
+        const juce::Rectangle<float> pl ((float) cX + 12.0f, 188.0f, (float) (cR - cX) - 24.0f, 72.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.55f)); g.fillRoundedRectangle (pl.translated (0.0f, 1.5f).expanded (1.0f), 7.0f);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff111317), 0.0f, pl.getY(), juce::Colour (0xff1c1f25), 0.0f, pl.getBottom(), false));
+        g.fillRoundedRectangle (pl, 6.0f);
+        g.setColour (juce::Colour (0xff050608)); g.drawRoundedRectangle (pl.reduced (0.5f), 6.0f, 1.2f);
+        g.setColour (juce::Colours::white.withAlpha (0.07f)); g.drawLine (pl.getX() + 6.0f, pl.getBottom() + 1.0f, pl.getRight() - 6.0f, pl.getBottom() + 1.0f, 1.0f);
+        g.setFont (titleFont (27.0f).withExtraKerningFactor (0.1f));
+        g.setColour (juce::Colours::black.withAlpha (0.7f));
+        g.drawText ("DARK 4K", pl.withHeight (44.0f).translated (0.0f, 8.0f), juce::Justification::centred, false);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xfff4f5f7), 0.0f, pl.getY() + 10.0f, juce::Colour (0xff9fa3ac), 0.0f, pl.getY() + 50.0f, false));
+        g.drawText ("DARK 4K", pl.withHeight (44.0f).translated (0.0f, 6.0f), juce::Justification::centred, false);
+        g.setColour (juce::Colour (0xff4fe08a).withAlpha (0.55f));
+        g.fillRect (pl.getCentreX() - 56.0f, pl.getY() + 51.0f, 112.0f, 1.0f);
+        g.setColour (juce::Colour (0xff8d919a));
+        g.setFont (headFont (11.5f).withExtraKerningFactor (0.30f));
+        g.drawText ("CHANNEL STRIP", pl.withTrimmedTop (53.0f), juce::Justification::centred, false);
+    }
 
     drawMeters (g, inMeterBox, inLvl, inHold, "INPUT");
     drawMeters (g, outMeterBox, outLvl, outHold, "OUTPUT");
@@ -816,9 +829,12 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     drawFaderScale (g);
     g.setColour (juce::Colour (0xff3a3c42));
     g.setFont (headFont (13.0f).withExtraKerningFactor (0.2f));
-    g.drawText ("OUT", juce::Rectangle<float> ((float) cX, 284.0f, (float) (cR - cX), 16.0f), juce::Justification::centred, false);
+    g.drawText ("OUT", juce::Rectangle<float> (fader.getBounds().toFloat().getCentreX() - 40.0f, 280.0f, 80.0f, 16.0f), juce::Justification::centred, false);
 
-    const juce::Rectangle<float> rd ((float) (cX + cR) * 0.5f - 54.0f, 838.0f, 108.0f, 36.0f);
+    g.setColour (juce::Colour (0xff3a3c42));
+    g.setFont (headFont (13.0f));
+    g.drawText ("OUT TRIM", juce::Rectangle<float> ((float) cX + 14.0f, 816.0f, 104.0f, 18.0f), juce::Justification::centred, false);
+    const juce::Rectangle<float> rd ((float) cX + 14.0f, 838.0f, 104.0f, 36.0f);
     g.setColour (juce::Colour (0xff050806)); g.fillRoundedRectangle (rd, 4.0f);
     g.setColour (juce::Colour (0xff3a3d45)); g.drawRoundedRectangle (rd.reduced (0.5f), 4.0f, 1.0f);
     g.setColour (juce::Colour (0xff4fe08a));
@@ -832,6 +848,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v3.3", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.4", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
