@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "Dark4kDsp.h"
 #include <vector>
 
 //==============================================================================
@@ -94,6 +95,9 @@ private:
     void drawMeters (juce::Graphics&, juce::Rectangle<float> r, const float* levels, const float* holds, const juce::String& title);
     void drawLadder (juce::Graphics&, juce::Rectangle<float>);
     void drawFaderScale (juce::Graphics&);
+    void drawEqScreen (juce::Graphics&, juce::Rectangle<float>);
+    static float cLx() { return 238.0f * 1.5f; }
+    static float cW() { return (395.0f - 238.0f) * 1.5f; }
 
     Dark4kAudioProcessor& processor;
     D4kLookAndFeel laf;
@@ -103,8 +107,7 @@ private:
     juce::Slider fader;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> faderAtt;
     juce::ParameterAttachment releaseAtt;
-    D4kButton btn100 { "100 ms", juce::Colour (0xff46e07a) };
-    D4kButton btnAuto { "AUTO", juce::Colour (0xff46e07a) };
+    D4kButton btnAuto { "AUTO", juce::Colours::transparentBlack, true };
 
     juce::Image texture;
     float inLvl[2] { -100, -100 }, outLvl[2] { -100, -100 }, inHold[2] { -100, -100 }, outHold[2] { -100, -100 };
@@ -112,7 +115,7 @@ private:
     float grSmoothed = 0.0f;
     float clipAge[4] { 0, 0, 0, 0 };
 
-    juce::Rectangle<float> inMeterBox, outMeterBox, ladderBox, chDisplay;
+    juce::Rectangle<float> inMeterBox, outMeterBox, ladderBox, chDisplay, eqScreen;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Dark4kAudioProcessorEditor)
 };

@@ -5,7 +5,8 @@ using namespace D4kColours;
 
 namespace
 {
-    constexpr int kW = 1000, kH = 800;
+    constexpr int kW = 948, kH = 879;
+    constexpr float K = 1.5f;
 
     juce::Typeface::Ptr loadTypeface (const char* data, int size)
     {
@@ -221,61 +222,42 @@ D4kButton& Dark4kAudioProcessorEditor::addToggle (const juce::String& id, const 
 Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p),
       releaseAtt (*p.apvts.getParameter ("release"),
-                  [this] (float v)
-                  {
-                      btn100.setToggleState (v < 0.5f, juce::dontSendNotification);
-                      btnAuto.setToggleState (v > 0.5f, juce::dontSendNotification);
-                  })
+                  [this] (float v) { btnAuto.setToggleState (v > 0.5f, juce::dontSendNotification); })
 {
     using M = std::vector<std::pair<double, juce::String>>;
     const M gainMarks { { -15, "-15" }, { -10, "" }, { -5, "-5" }, { 0, "0" }, { 5, "5" }, { 10, "" }, { 15, "15" } };
     const M qMarks { { 0.5, ".5" }, { 0.8, "" }, { 1.2, "1" }, { 2.0, "2" }, { 3.0, "3" } };
 
-    // Filtros
-    addKnob ("hpf", "HPF", "Hz", white, 16.0, { { 16, "OUT" }, { 50, "50" }, { 100, "100" }, { 200, "200" }, { 350, "350" } });
-    addKnob ("lpf", "LPF", "kHz", white, 22000.0, { { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 22000, "OUT" } });
-    // HF
-    addKnob ("hfg", "HF", "dB", red, 0.0, gainMarks);
-    addKnob ("hff", "FREQ", "kHz", red, 8000.0, { { 1500, "1.5" }, { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 16000, "16" } });
-    // HMF
-    addKnob ("hmfg", "HMF", "dB", green, 0.0, gainMarks);
-    addKnob ("hmff", "FREQ", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
-    addKnob ("hmfq", "Q", "", green, 1.2, qMarks);
-    // LMF
-    addKnob ("lmfg", "LMF", "dB", blue, 0.0, gainMarks);
-    addKnob ("lmff", "FREQ", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
-    addKnob ("lmfq", "Q", "", blue, 1.2, qMarks);
-    // LF
-    addKnob ("lfg", "LF", "dB", brown, 0.0, gainMarks);
-    addKnob ("lff", "FREQ", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
-    // Centro
-    addKnob ("intrim", "IN TRIM", "dB", white, 0.0, { { -20, "-20" }, { -10, "-10" }, { 0, "0" }, { 10, "10" }, { 20, "+20" } });
-    // Dark VCA
+    addKnob ("hpf", "", "Hz", white, 16.0, { { 16, "OUT" }, { 50, "50" }, { 100, "100" }, { 200, "200" }, { 350, "350" } });
+    addKnob ("lpf", "", "kHz", white, 22000.0, { { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 22000, "OUT" } });
+    addKnob ("hfg", "", "dB", red, 0.0, gainMarks);
+    addKnob ("hff", "", "kHz", red, 8000.0, { { 1500, "1.5" }, { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 16000, "16" } });
+    addKnob ("hmfg", "", "dB", green, 0.0, gainMarks);
+    addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
+    addKnob ("hmfq", "", "Q", green, 1.2, qMarks);
+    addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
+    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
+    addKnob ("lmfq", "", "Q", blue, 1.2, qMarks);
+    addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
+    addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
+    addKnob ("intrim", "IN TRIM", "dB", white, 0.0, { { -20, "-20" }, { -10, "" }, { 0, "0" }, { 10, "" }, { 20, "+20" } });
     addKnob ("threshold", "THRESHOLD", "dB", silver, 10.0,
              { { 10, "+10" }, { 5, "+5" }, { 0, "0" }, { -5, "-5" }, { -10, "-10" }, { -15, "-15" }, { -20, "-20" } });
     addKnob ("attack", "ATTACK", "ms", silver, 3.0, { { 0, "0.1" }, { 1, "0.3" }, { 2, "1" }, { 3, "3" }, { 4, "10" }, { 5, "30" } });
     addKnob ("makeup", "MAKEUP", "dB", silver, 0.0, { { 0, "0" }, { 3, "3" }, { 6, "6" }, { 9, "9" }, { 12, "12" }, { 15, "15" } });
-    // Puerta
     addKnob ("gatethr", "THRESHOLD", "dB", silver, -70.0, { { -70, "OFF" }, { -50, "-50" }, { -30, "-30" }, { -10, "-10" }, { 0, "0" } });
     addKnob ("gaterange", "RANGE", "dB", silver, 0.0, { { 0, "0" }, { 10, "10" }, { 20, "20" }, { 30, "30" }, { 40, "40" } });
 
-    for (auto* kk : { "hfg", "hmfg", "lmfg", "lfg" }) juce::ignoreUnused (kk);
-
-    // Botones
-    addToggle ("bypass", "POWER", juce::Colours::transparentBlack, true, true);
+    addToggle ("bypass", "PWR", juce::Colours::transparentBlack, true, true);
     addToggle ("phase", "\xc3\x98", juce::Colours::transparentBlack, true);
     addToggle ("filtin", "IN", juce::Colours::transparentBlack, true);
     addToggle ("eqin", "IN", juce::Colours::transparentBlack, true);
-    addToggle ("eqblack", "BLACK", juce::Colour (0xff46e07a));
-    addToggle ("hfbell", "BELL", juce::Colour (0xff46e07a));
-    addToggle ("lfbell", "BELL", juce::Colour (0xff46e07a));
+    addToggle ("hfbell", "BELL", juce::Colours::transparentBlack, true);
+    addToggle ("lfbell", "BELL", juce::Colours::transparentBlack, true);
     addToggle ("dynin", "IN", juce::Colours::transparentBlack, true);
 
-    btn100.setRadioGroupId (7);
-    btnAuto.setRadioGroupId (7);
-    btn100.onClick  = [this] { releaseAtt.setValueAsCompleteGesture (0.0f); };
-    btnAuto.onClick = [this] { releaseAtt.setValueAsCompleteGesture (1.0f); };
-    addAndMakeVisible (btn100);
+    btnAuto.setClickingTogglesState (false);
+    btnAuto.onClick = [this] { releaseAtt.setValueAsCompleteGesture (btnAuto.getToggleState() ? 0.0f : 1.0f); };
     addAndMakeVisible (btnAuto);
     releaseAtt.sendInitialUpdate();
 
@@ -304,45 +286,40 @@ void Dark4kAudioProcessorEditor::buildTexture()
     juce::Graphics g (texture);
     juce::Random rng (4200);
 
-    auto region = [&] (juce::Rectangle<int> r, juce::Colour top, juce::Colour bottom, float lineAlpha, bool darkLines)
+    auto region = [&] (juce::Rectangle<int> r, juce::Colour top, juce::Colour bottom, float lineAlpha)
     {
         g.setGradientFill (juce::ColourGradient (top, 0.0f, (float) r.getY(), bottom, 0.0f, (float) r.getBottom(), false));
         g.fillRect (r);
         for (int y = r.getY(); y < r.getBottom(); ++y)
         {
-            g.setColour ((darkLines ? juce::Colours::black : juce::Colours::white).withAlpha (rng.nextFloat() * lineAlpha));
+            g.setColour (juce::Colours::black.withAlpha (rng.nextFloat() * lineAlpha));
             g.drawHorizontalLine (y, (float) r.getX(), (float) r.getRight());
         }
-        for (int i = 0; i < r.getWidth() * r.getHeight() / 1800; ++i)
-        {
-            const float x = (float) r.getX() + rng.nextFloat() * (float) r.getWidth(), yy = (float) r.getY() + rng.nextFloat() * (float) r.getHeight();
-            const float len = 6.0f + rng.nextFloat() * 30.0f;
-            g.setColour (juce::Colours::white.withAlpha (0.015f + rng.nextFloat() * 0.03f));
-            g.drawLine (x, yy, juce::jmin (x + len, (float) r.getRight()), yy + (rng.nextFloat() - 0.5f) * 2.0f, 1.0f);
-        }
     };
-
-    region ({ 0, 0, 250, kH }, juce::Colour (0xff2c3039), juce::Colour (0xff23262e), 0.05f, true);
-    region ({ 750, 0, 250, kH }, juce::Colour (0xff2c3039), juce::Colour (0xff23262e), 0.05f, true);
-    region ({ 250, 0, 125, kH }, juce::Colour (0xff16181d), juce::Colour (0xff101216), 0.04f, true);
-    region ({ 625, 0, 125, kH }, juce::Colour (0xff16181d), juce::Colour (0xff101216), 0.04f, true);
-    region ({ 375, 0, 250, 270 }, juce::Colour (0xff2a2d35), juce::Colour (0xff1f2128), 0.05f, true);
-    region ({ 375, 270, 250, kH - 270 }, juce::Colour (0xffc6c8cc), juce::Colour (0xffa9abb0), 0.06f, true);
+    const int L = (int) (160 * K), R0 = (int) (472 * K), cL = (int) (238 * K), cR = (int) (395 * K);
+    region ({ 0, 0, L, kH }, juce::Colour (0xff30343d), juce::Colour (0xff252830), 0.06f);
+    region ({ R0, 0, kW - R0, kH }, juce::Colour (0xff30343d), juce::Colour (0xff252830), 0.06f);
+    region ({ L, 0, cL - L, kH }, juce::Colour (0xff17191e), juce::Colour (0xff101216), 0.05f);
+    region ({ cR, 0, R0 - cR, kH }, juce::Colour (0xff17191e), juce::Colour (0xff101216), 0.05f);
+    region ({ cL, 0, cR - cL, (int) (185 * K) }, juce::Colour (0xff2c2f37), juce::Colour (0xff1f2128), 0.05f);
+    region ({ cL, (int) (185 * K), cR - cL, kH - (int) (185 * K) }, juce::Colour (0xffc9cbcf), juce::Colour (0xffa9abb0), 0.07f);
 
     g.setColour (juce::Colour (0xff0b0c0f));
-    for (int x : { 250, 375, 625, 750 }) g.fillRect (x - 1, 0, 2, kH);
+    for (int x : { L, cL, cR, R0 }) g.fillRect (x - 1, 0, 2, kH);
+    g.fillRect (cL, (int) (185 * K) - 1, cR - cL, 3);
+
+    // barra inferior
+    region ({ 0, (int) (548 * K), kW, kH - (int) (548 * K) }, juce::Colour (0xff1b1d23), juce::Colour (0xff121419), 0.04f);
     g.setColour (juce::Colour (0xff0b0c0f));
-    g.fillRect (375, 269, 250, 3);
-    g.setColour (juce::Colours::white.withAlpha (0.08f));
-    g.drawRect (0, 0, kW, kH, 1);
+    g.fillRect (0, (int) (548 * K) - 1, kW, 2);
 }
 
 void Dark4kAudioProcessorEditor::drawScrew (juce::Graphics& g, juce::Point<float> c)
 {
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff8a8d94), c.x - 4, c.y - 4, juce::Colour (0xff2b2d32), c.x + 5, c.y + 5, true));
-    g.fillEllipse (c.x - 6, c.y - 6, 12, 12);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff8a8d94), c.x - 3, c.y - 3, juce::Colour (0xff2b2d32), c.x + 4, c.y + 4, true));
+    g.fillEllipse (c.x - 5, c.y - 5, 10, 10);
     g.setColour (juce::Colour (0xff15161a));
-    g.drawLine (c.x - 4, c.y - 2, c.x + 4, c.y + 2, 1.6f);
+    g.drawLine (c.x - 3, c.y - 1.5f, c.x + 3, c.y + 1.5f, 1.4f);
 }
 
 void Dark4kAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
@@ -356,53 +333,56 @@ void Dark4kAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
 
 void Dark4kAudioProcessorEditor::resized()
 {
-    auto place = [this] (const char* id, float cx, float cy, float R, float scaleR, float labelR, float font)
+    auto place = [this] (const char* id, float cx, float cy, float Rr)
     {
         for (auto& k : knobs)
             if (k->slider.getName() == id)
             {
-                k->slider.setBounds (juce::Rectangle<float> (R * 2.0f, R * 2.0f).withCentre ({ cx, cy }).toNearestInt());
-                k->scaleR = scaleR; k->labelR = labelR; k->fontSize = font;
+                const float R = Rr * K;
+                k->slider.setBounds (juce::Rectangle<float> (R * 2.0f, R * 2.0f).withCentre ({ cx * K, cy * K }).toNearestInt());
+                const bool big = Rr >= 17.0f;
+                k->scaleR = R + (big ? 12.0f : 9.0f);
+                k->labelR = R + (big ? 24.0f : 20.0f);
+                k->fontSize = big ? 11.0f : 10.0f;
             }
     };
-    auto btn = [this] (const char* id, int x, int y, int w, int h)
+    auto btn = [this] (const char* id, float x, float y, float w, float h)
     {
         for (auto& t : toggles)
-            if (t->button->getName() == id) t->button->setBounds (x, y, w, h);
+            if (t->button->getName() == id)
+                t->button->setBounds (juce::Rectangle<float> (x * K, y * K, w * K, h * K).toNearestInt());
     };
 
-    // --- Izquierda: filtros + EQ ---
-    place ("hpf", 70, 92, 28, 38, 50, 12.0f);
-    place ("lpf", 180, 92, 28, 38, 50, 12.0f);
-    btn ("filtin", 160, 156, 74, 28);
+    // Izquierda: filtros + EQ (posiciones del layout de referencia)
+    btn ("filtin", 98, 8, 36, 20);
+    place ("hpf", 45, 44, 19);  place ("lpf", 115, 76, 19);
+    btn ("hfbell", 96, 126, 40, 20);
+    place ("hfg", 45, 150, 15); place ("hff", 115, 182, 16);
+    place ("hmfg", 45, 232, 15); place ("hmff", 115, 262, 15); place ("hmfq", 45, 296, 15);
+    btn ("eqin", 100, 318, 34, 20);
+    place ("lmfg", 45, 368, 15); place ("lmff", 115, 404, 15); place ("lmfq", 45, 434, 15);
+    place ("lff", 115, 474, 16); place ("lfg", 45, 512, 15);
+    btn ("lfbell", 96, 519, 40, 20);
 
-    const float cols[3] = { 44, 125, 206 };
-    const float R = 21, sR = 29, lR = 41;
-    place ("hfg", cols[0], 268, R, sR, lR, 10.0f);   place ("hff", cols[1], 268, R, sR, lR, 10.0f);   btn ("hfbell", 176, 254, 60, 28);
-    place ("hmfg", cols[0], 398, R, sR, lR, 10.0f);  place ("hmff", cols[1], 398, R, sR, lR, 10.0f);  place ("hmfq", cols[2], 398, R, sR, lR, 10.0f);
-    btn ("eqin", 90, 476, 64, 30);  btn ("eqblack", 160, 476, 76, 30);
-    place ("lmfg", cols[0], 580, R, sR, lR, 10.0f);  place ("lmff", cols[1], 580, R, sR, lR, 10.0f);  place ("lmfq", cols[2], 580, R, sR, lR, 10.0f);
-    place ("lfg", cols[0], 706, R, sR, lR, 10.0f);   place ("lff", cols[1], 706, R, sR, lR, 10.0f);   btn ("lfbell", 176, 692, 60, 28);
+    // Centro
+    btn ("bypass", 176, 6, 32, 22);
+    chDisplay = { 220.0f * K, 6.0f * K, 196.0f * K, 22.0f * K };
+    place ("intrim", 285, 76, 17);
+    btn ("phase", 330, 60, 34, 22);
+    fader.setBounds ((int) (300 * K), (int) (232 * K), (int) (70 * K), (int) (276 * K));
+    inMeterBox  = { 247.0f, 98.0f, 100.0f, 706.0f };
+    outMeterBox = { 603.0f, 98.0f, 100.0f, 706.0f };
 
-    // --- Centro ---
-    btn ("bypass", 262, 16, 100, 34);
-    chDisplay = { 392.0f, 14.0f, 216.0f, 38.0f };
-    place ("intrim", 500, 138, 36, 49, 62, 11.0f);
-    btn ("phase", 462, 226, 76, 30);
-    fader.setBounds (460, 300, 80, 420);
-    inMeterBox  = { 262.0f, 96.0f, 100.0f, 640.0f };
-    outMeterBox = { 638.0f, 96.0f, 100.0f, 640.0f };
-
-    // --- Derecha: Dark VCA + puerta ---
-    btn ("dynin", 846, 22, 92, 34);
-    place ("threshold", 875, 176, 44, 60, 76, 12.0f);
-    place ("attack", 810, 312, 32, 44, 58, 11.0f);
-    place ("makeup", 940, 312, 32, 44, 58, 11.0f);
-    btn100.setBounds (772, 404, 98, 32);
-    btnAuto.setBounds (880, 404, 98, 32);
-    ladderBox = { 785.0f, 460.0f, 180.0f, 160.0f };
-    place ("gatethr", 810, 706, 28, 38, 52, 11.0f);
-    place ("gaterange", 940, 706, 28, 38, 52, 11.0f);
+    // Derecha
+    place ("threshold", 517, 72, 17);
+    btnAuto.setBounds (juce::Rectangle<float> (566 * K, 60 * K, 40 * K, 22 * K).toNearestInt());
+    place ("attack", 585, 128, 17);
+    place ("makeup", 517, 160, 15);
+    btn ("dynin", 514, 208, 32, 22);
+    place ("gatethr", 585, 232, 16);
+    place ("gaterange", 517, 276, 16);
+    ladderBox = { 556.0f * K, 276.0f * K, 62.0f * K, 76.0f * K };
+    eqScreen = { 482.0f * K, 440.0f * K, 140.0f * K, 98.0f * K };
 }
 
 void Dark4kAudioProcessorEditor::timerCallback()
@@ -424,18 +404,17 @@ void Dark4kAudioProcessorEditor::timerCallback()
     repaint();
 }
 
+
 void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
 {
     const auto c = k.slider.getBounds().toFloat().getCentre();
-    const bool onLight = false;
-    juce::ignoreUnused (onLight);
     for (auto& m : k.marks)
     {
         const float prop = (float) k.slider.valueToProportionOfLength (m.first);
         const float a = D4kLookAndFeel::startAngle + prop * (D4kLookAndFeel::endAngle - D4kLookAndFeel::startAngle);
         const auto p = polar (c, a, k.scaleR);
         g.setColour (dot);
-        g.fillEllipse (p.x - 1.8f, p.y - 1.8f, 3.6f, 3.6f);
+        g.fillEllipse (p.x - 1.7f, p.y - 1.7f, 3.4f, 3.4f);
         if (m.second.isNotEmpty())
         {
             const auto q = polar (c, a, k.labelR);
@@ -444,16 +423,19 @@ void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
             g.drawText (m.second, juce::Rectangle<float> (40.0f, 14.0f).withCentre (q), juce::Justification::centred, false);
         }
     }
-    // título bajo la perilla
-    const float y = c.y + k.labelR * 0.72f + 11.0f;
-    g.setColour (title);
-    g.setFont (titleFont (k.slider.getWidth() > 70 ? 13.0f : 10.0f).withExtraKerningFactor (0.04f));
-    g.drawText (k.title, juce::Rectangle<float> (110.0f, 16.0f).withCentre ({ c.x, y }), juce::Justification::centred, false);
+    float y = c.y + k.labelR * 0.72f + 10.0f;
+    if (k.title.isNotEmpty())
+    {
+        g.setColour (title);
+        g.setFont (titleFont (10.5f).withExtraKerningFactor (0.04f));
+        g.drawText (k.title, juce::Rectangle<float> (110.0f, 16.0f).withCentre ({ c.x, y }), juce::Justification::centred, false);
+        y += 14.0f;
+    }
     if (k.unit.isNotEmpty())
     {
         g.setColour (grey);
         g.setFont (labelFont (11.0f));
-        g.drawText (k.unit, juce::Rectangle<float> (110.0f, 14.0f).withCentre ({ c.x, y + 14.0f }), juce::Justification::centred, false);
+        g.drawText (k.unit, juce::Rectangle<float> (110.0f, 14.0f).withCentre ({ c.x, y }), juce::Justification::centred, false);
     }
 }
 
@@ -461,14 +443,14 @@ void Dark4kAudioProcessorEditor::drawMeters (juce::Graphics& g, juce::Rectangle<
 {
     constexpr float lo = -60.0f;
     const bool scaleLeft = r.getX() < 400.0f;
-    const float barW = 22.0f, gap = 8.0f;
-    const float bx0 = scaleLeft ? r.getX() + 46.0f : r.getX() + 4.0f;
+    const float barW = 20.0f, gap = 4.0f;
+    const float bx0 = scaleLeft ? r.getX() + 36.0f : r.getX() + 3.0f;
     const float yTop = r.getY(), h = r.getHeight();
     auto yOf = [&] (float db) { return yTop + h - (juce::jlimit (lo, 0.0f, db) - lo) / (0.0f - lo) * h; };
 
     g.setColour (grey);
     g.setFont (titleFont (12.0f).withExtraKerningFactor (0.08f));
-    g.drawText (titleText, juce::Rectangle<float> (r.getX(), 56.0f, r.getWidth() + 10.0f, 18.0f), juce::Justification::centred, false);
+    g.drawText (titleText, juce::Rectangle<float> (bx0 - 10.0f, 54.0f, 2.0f * (barW + gap) + 20.0f, 18.0f), juce::Justification::centred, false);
 
     for (int ch = 0; ch < 2; ++ch)
     {
@@ -487,152 +469,227 @@ void Dark4kAudioProcessorEditor::drawMeters (juce::Graphics& g, juce::Rectangle<
                 g.fillRect (x + 1.0f, yTop + h - segH * (float) (i + 1) + 0.5f, barW - 2.0f, segH - 1.0f);
             }
         }
-        // marca de pico
         if (holds[ch] > lo)
         {
             g.setColour (juce::Colour (0xffffd9a8));
             g.fillRect (x + 1.0f, yOf (holds[ch]) - 1.0f, barW - 2.0f, 2.0f);
         }
-        // LED de clip
         const bool clip = holds[ch] > -0.1f;
-        const juce::Rectangle<float> led (x, yTop - 16.0f, barW, 9.0f);
-        g.setColour (clip ? juce::Colour (0xffff3a3a) : juce::Colour (0xff3a1418));
-        g.fillRoundedRectangle (led, 2.0f);
+        g.setColour (clip ? juce::Colour (0xffff3a3a) : juce::Colour (0xff4a1418));
+        g.fillRoundedRectangle (x, yTop - 14.0f, barW, 8.0f, 2.0f);
     }
 
-    // escala 0..60 (rojo arriba, verde abajo)
-    g.setFont (numberFont (14.0f));
+    g.setFont (numberFont (13.0f));
+    const float sx = scaleLeft ? r.getX() : bx0 + 2.0f * (barW + gap) + 3.0f;
     for (int v = 0; v <= 60; v += 6)
     {
         g.setColour (v <= 6 ? juce::Colour (0xffff4a4a) : (v <= 12 ? juce::Colour (0xffffb347) : juce::Colour (0xff3ddc6a)));
-        const float y = yOf ((float) -v);
-        const float sx = scaleLeft ? r.getX() : r.getX() + 4.0f + 2.0f * (barW + gap) + 2.0f;
-        g.drawText (juce::String (v), juce::Rectangle<float> (sx, y - 8.0f, 40.0f, 16.0f),
-                    scaleLeft ? juce::Justification::centredLeft : juce::Justification::centredLeft, false);
+        g.drawText (juce::String (v), juce::Rectangle<float> (sx, yOf ((float) -v) - 8.0f, 34.0f, 16.0f),
+                    scaleLeft ? juce::Justification::centredRight : juce::Justification::centredLeft, false);
     }
 }
 
 void Dark4kAudioProcessorEditor::drawLadder (juce::Graphics& g, juce::Rectangle<float> box)
 {
-    g.setColour (juce::Colour (0xff10131c).withAlpha (0.6f));
-    g.fillRoundedRectangle (box, 6.0f);
+    g.setColour (juce::Colour (0xff10131c).withAlpha (0.65f));
+    g.fillRoundedRectangle (box, 5.0f);
     g.setColour (juce::Colour (0xff5b6684));
-    g.drawRoundedRectangle (box.reduced (0.5f), 6.0f, 1.2f);
+    g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.2f);
 
     struct Row { int db; juce::Colour col; };
     const Row rows[5] = { { 20, juce::Colour (0xffd62020) }, { 14, juce::Colour (0xffff3a3a) }, { 10, juce::Colour (0xffff9a2e) },
                           { 6, juce::Colour (0xffffb02e) }, { 3, juce::Colour (0xffffd23a) } };
+    const float step = (box.getHeight() - 20.0f) / 4.0f;
     for (int i = 0; i < 5; ++i)
     {
-        const float y = box.getY() + 22.0f + 26.0f * (float) i;
-        const float gx = box.getX() + 24.0f, rx = box.getRight() - 24.0f;
-        g.setColour (juce::Colour (0xff3ddc6a).withAlpha (0.25f));
-        g.fillEllipse (gx - 8.0f, y - 8.0f, 16.0f, 16.0f);
+        const float y = box.getY() + 10.0f + step * (float) i;
+        const float gx = box.getX() + 12.0f, rx = box.getRight() - 12.0f;
         g.setColour (juce::Colour (0xff3ddc6a));
-        g.fillEllipse (gx - 5.5f, y - 5.5f, 11.0f, 11.0f);
+        g.fillEllipse (gx - 4.0f, y - 4.0f, 8.0f, 8.0f);
         g.setColour (number);
-        g.setFont (numberFont (14.0f));
-        g.drawText (juce::String (rows[i].db), juce::Rectangle<float> (box.getCentreX() - 20.0f, y - 8.0f, 40.0f, 16.0f), juce::Justification::centred, false);
+        g.setFont (numberFont (12.0f));
+        g.drawText (juce::String (rows[i].db), juce::Rectangle<float> (box.getCentreX() - 14.0f, y - 7.0f, 28.0f, 14.0f), juce::Justification::centred, false);
         const bool lit = grSmoothed >= (float) rows[i].db * 0.999f;
-        if (lit) { g.setColour (rows[i].col.withAlpha (0.3f)); g.fillEllipse (rx - 9.0f, y - 9.0f, 18.0f, 18.0f); }
+        if (lit) { g.setColour (rows[i].col.withAlpha (0.3f)); g.fillEllipse (rx - 7.0f, y - 7.0f, 14.0f, 14.0f); }
         g.setColour (lit ? rows[i].col : rows[i].col.withMultipliedBrightness (0.2f));
-        g.fillEllipse (rx - 5.5f, y - 5.5f, 11.0f, 11.0f);
+        g.fillEllipse (rx - 4.0f, y - 4.0f, 8.0f, 8.0f);
     }
-    g.setColour (amber);
-    g.setFont (numberFont (18.0f));
-    g.drawText (juce::String (grSmoothed, 1) + " dB", juce::Rectangle<float> (box.getX(), box.getBottom() - 26.0f, box.getWidth(), 22.0f), juce::Justification::centred, false);
 }
 
 void Dark4kAudioProcessorEditor::drawFaderScale (juce::Graphics& g)
 {
     const auto b = fader.getBounds().toFloat();
     const float top = b.getY() + (float) D4kLookAndFeel::faderThumbHalf, bottom = b.getBottom() - (float) D4kLookAndFeel::faderThumbHalf;
-    const float x0 = b.getCentreX() + 40.0f;
-    g.setFont (numberFont (16.0f));
+    const float x0 = b.getCentreX() + 36.0f;
+    g.setFont (numberFont (15.0f));
     struct T { double v; const char* t; };
     for (auto t : { T { 12, "12" }, T { 6, "6" }, T { 0, "0" }, T { -5, "5" }, T { -10, "10" }, T { -20, "20" }, T { -30, "30" },
                     T { -40, "40" }, T { -50, "50" }, T { -80, "\xe2\x88\x9e" } })
     {
         const float y = bottom - (float) fader.valueToProportionOfLength (t.v) * (bottom - top);
         g.setColour (juce::Colour (0xff2a2c31));
-        g.drawLine (x0, y, x0 + 8.0f, y, 1.4f);
-        g.drawText (juce::CharPointer_UTF8 (t.t), juce::Rectangle<float> (x0 + 12.0f, y - 9.0f, 36.0f, 18.0f), juce::Justification::centredLeft, false);
+        g.drawLine (x0, y, x0 + 7.0f, y, 1.3f);
+        g.drawText (juce::CharPointer_UTF8 (t.t), juce::Rectangle<float> (x0 + 11.0f, y - 9.0f, 34.0f, 18.0f), juce::Justification::centredLeft, false);
     }
+}
+
+void Dark4kAudioProcessorEditor::drawEqScreen (juce::Graphics& g, juce::Rectangle<float> r)
+{
+    g.setColour (juce::Colour (0xff0b1410));
+    g.fillRoundedRectangle (r, 5.0f);
+    g.setColour (juce::Colour (0xff2c4a3a));
+    g.drawRoundedRectangle (r.reduced (0.5f), 5.0f, 1.4f);
+
+    auto v = [this] (const char* id) { return processor.apvts.getRawParameterValue (id)->load(); };
+    const double sr = 48000.0;
+    d4k::EqVoicing vo; vo.black = true;
+    d4k::Biquad hf, hmf, lmf, lf, hp, lp;
+    const bool eqOn = v ("eqin") > 0.5f, fOn = v ("filtin") > 0.5f;
+    const float gHf = v ("hfg"), gHm = v ("hmfg"), gLm = v ("lmfg"), gLf = v ("lfg");
+    if (v ("hfbell") > 0.5f) hf.peak (sr, v ("hff"), gHf, vo.bellQ (1.0, gHf)); else hf.highShelf (sr, v ("hff"), gHf, vo.shelfQ());
+    hmf.peak (sr, v ("hmff"), gHm, vo.bellQ (v ("hmfq"), gHm));
+    lmf.peak (sr, v ("lmff"), gLm, vo.bellQ (v ("lmfq"), gLm));
+    if (v ("lfbell") > 0.5f) lf.peak (sr, v ("lff"), gLf, vo.bellQ (1.0, gLf)); else lf.lowShelf (sr, v ("lff"), gLf, vo.shelfQ());
+    const bool hpOn = v ("hpf") > 16.5f, lpOn = v ("lpf") < 21900.0f;
+    if (hpOn) hp.highPass2 (sr, v ("hpf"), 0.707);
+    if (lpOn) lp.lowPass2 (sr, v ("lpf"), 0.707);
+
+    const auto inner = r.reduced (8.0f, 10.0f);
+    g.setColour (juce::Colour (0xff1c3a2a));
+    for (int i = 1; i < 4; ++i)
+        g.drawHorizontalLine ((int) (inner.getY() + inner.getHeight() * (float) i / 4.0f), inner.getX(), inner.getRight());
+    for (double f : { 100.0, 1000.0, 10000.0 })
+    {
+        const float x = inner.getX() + (float) (std::log (f / 20.0) / std::log (1000.0)) * inner.getWidth();
+        g.drawVerticalLine ((int) x, inner.getY(), inner.getBottom());
+    }
+    g.setColour (juce::Colour (0xff2c6a48));
+    g.drawHorizontalLine ((int) inner.getCentreY(), inner.getX(), inner.getRight());
+
+    juce::Path p;
+    for (int i = 0; i <= 160; ++i)
+    {
+        const double f = 20.0 * std::pow (1000.0, (double) i / 160.0);
+        double db = 0.0;
+        if (eqOn) db += hf.magDb (f, sr) + hmf.magDb (f, sr) + lmf.magDb (f, sr) + lf.magDb (f, sr);
+        if (fOn)  { if (hpOn) db += hp.magDb (f, sr); if (lpOn) db += lp.magDb (f, sr); }
+        const float y = inner.getCentreY() - (float) juce::jlimit (-20.0, 20.0, db) / 20.0f * inner.getHeight() * 0.5f;
+        const float x = inner.getX() + (float) i / 160.0f * inner.getWidth();
+        if (i == 0) p.startNewSubPath (x, y); else p.lineTo (x, y);
+    }
+    g.setColour (juce::Colour (0xff5be08a));
+    g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved));
 }
 
 void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.drawImageAt (texture, 0, 0);
 
-    for (auto c : { juce::Point<float> { 14, 14 }, { 236, 14 }, { 14, 786 }, { 236, 786 }, { 764, 14 }, { 986, 14 }, { 764, 786 }, { 986, 786 } })
-        drawScrew (g, c);
+    for (auto c : { juce::Point<float> { 232, 810 }, { 716, 810 }, { 8, 810 }, { 940, 810 } }) juce::ignoreUnused (c);
 
-    // ---- Izquierda ----
     auto sectionLabel = [&] (const juce::String& t, float x, float y)
     {
         g.setColour (title);
-        g.setFont (titleFont (14.0f).withExtraKerningFactor (0.1f));
-        g.drawText (t, juce::Rectangle<float> (x, y - 10.0f, 120.0f, 20.0f), juce::Justification::centredLeft, false);
+        g.setFont (titleFont (13.0f).withExtraKerningFactor (0.1f));
+        g.drawText (t, juce::Rectangle<float> (x * K, y * K - 10.0f, 120.0f, 20.0f), juce::Justification::centredLeft, false);
     };
-    sectionLabel ("FILTERS", 14.0f, 170.0f);
-    g.setColour (juce::Colour (0xff6c7078)); g.drawLine (12.0f, 196.0f, 238.0f, 196.0f, 1.4f);
-    sectionLabel ("HF", 14.0f, 218.0f);
-    sectionLabel ("HMF", 14.0f, 348.0f);
-    sectionLabel ("EQ", 14.0f, 491.0f);
-    g.setColour (juce::Colour (0xff6c7078)); g.drawLine (12.0f, 522.0f, 238.0f, 522.0f, 1.4f);
-    sectionLabel ("LMF", 14.0f, 530.0f);
-    sectionLabel ("LF", 14.0f, 656.0f);
-    g.setColour (juce::Colour (0xff6c7078)); g.drawLine (12.0f, 336.0f, 238.0f, 336.0f, 1.0f);
-    g.drawLine (12.0f, 646.0f, 238.0f, 646.0f, 1.0f);
+    auto hline = [&] (float y, float x0, float x1)
+    {
+        g.setColour (juce::Colour (0xff6c7078));
+        g.drawLine (x0 * K, y * K, x1 * K, y * K, 1.4f);
+    };
+
+    // ---- Izquierda ----
+    sectionLabel ("FILTERS", 8, 106); hline (118, 4, 156);
+    sectionLabel ("HF", 8, 184);
+    hline (204, 4, 156);
+    sectionLabel ("HMF", 8, 266);
+    hline (312, 4, 156);
+    sectionLabel ("EQ", 8, 328); hline (342, 4, 156);
+    sectionLabel ("LMF", 8, 404);
+    hline (448, 4, 156);
+    sectionLabel ("LF", 8, 470);
 
     // ---- Derecha ----
-    g.setColour (title);
-    g.setFont (titleFont (16.0f).withExtraKerningFactor (0.1f));
-    g.drawText ("DYN", 766, 22, 70, 34, juce::Justification::centredLeft);
-    g.setFont (titleFont (13.0f).withExtraKerningFactor (0.14f));
-    g.drawText ("COMPRESS", 750, 74, 250, 20, juce::Justification::centred);
-    g.setColour (juce::Colour (0xff6c7078)); g.drawLine (768.0f, 98.0f, 982.0f, 98.0f, 1.2f);
-    g.setColour (title);
-    g.drawText ("RELEASE", 750, 380, 250, 18, juce::Justification::centred);
-    g.drawText ("GATE", 750, 628, 250, 20, juce::Justification::centred);
-    g.setColour (juce::Colour (0xff6c7078)); g.drawLine (768.0f, 650.0f, 982.0f, 650.0f, 1.2f);
-
+    sectionLabel ("COMPRESS", 478, 16);
+    {
+        const juce::Rectangle<float> d (562.0f * K, 6.0f * K, 46.0f * K, 20.0f * K);
+        g.setColour (juce::Colour (0xff0b0d0b));
+        g.fillRoundedRectangle (d, 4.0f);
+        g.setColour (juce::Colour (0xff3a3d44));
+        g.drawRoundedRectangle (d.reduced (0.5f), 4.0f, 1.2f);
+        g.setColour (juce::Colour (0xff5be08a));
+        g.setFont (numberFont (16.0f));
+        g.drawText (juce::String (grSmoothed, 1) + " dB", d, juce::Justification::centred, false);
+        g.setColour (grey);
+        g.setFont (labelFont (11.0f));
+        g.drawText ("GR", juce::Rectangle<float> (612.0f * K, 6.0f * K, 18.0f * K, 20.0f * K), juce::Justification::centred, false);
+    }
+    g.setColour (juce::Colour (0xff6c7078));
+    sectionLabel ("DYN", 478, 220);
+    sectionLabel ("GATE", 556, 362);
+    hline (196, 476, 628);
     drawLadder (g, ladderBox);
+
+    {
+        const juce::Rectangle<float> badge (476.0f * K, 392.0f * K, 148.0f * K, 20.0f * K);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xffd3d5d9), 0.0f, badge.getY(), juce::Colour (0xff9fa2a8), 0.0f, badge.getBottom(), false));
+        g.fillRoundedRectangle (badge, 3.0f);
+        g.setColour (juce::Colour (0xff1c1d20));
+        g.drawRoundedRectangle (badge, 3.0f, 1.0f);
+        g.setFont (numberFont (13.0f).withExtraKerningFactor (0.08f));
+        g.drawText ("DARK SHAPE \xe2\x80\xa2 4000 E", badge, juce::Justification::centred, false);
+    }
+    drawEqScreen (g, eqScreen);
 
     for (auto& k : knobs) drawKnobScale (g, *k);
 
     // ---- Centro ----
-    g.setColour (juce::Colour (0xff0b0d0b));
-    g.fillRoundedRectangle (chDisplay, 4.0f);
-    g.setColour (juce::Colour (0xff3a3d44));
-    g.drawRoundedRectangle (chDisplay.reduced (0.5f), 4.0f, 1.2f);
-    g.setColour (juce::Colour (0xff5be08a));
-    g.setFont (titleFont (16.0f).withExtraKerningFactor (0.12f));
-    g.drawText ("CH " + juce::String (processor.getChannel()).paddedLeft ('0', 3), chDisplay.reduced (8.0f, 0.0f), juce::Justification::centredLeft, false);
-    g.setColour (juce::Colour (0xff3d8c5a));
-    g.setFont (labelFont (12.0f).withExtraKerningFactor (0.2f));
-    g.drawText ("DARK 4K", chDisplay.reduced (10.0f, 0.0f), juce::Justification::centredRight, false);
+    {
+        const auto& r = chDisplay;
+        g.setColour (juce::Colour (0xff0b0d0b));
+        g.fillRoundedRectangle (r, 4.0f);
+        g.setColour (juce::Colour (0xff3a3d44));
+        g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.2f);
+        g.setColour (juce::Colour (0xffe0343a));
+        g.setFont (titleFont (17.0f).withExtraKerningFactor (0.1f));
+        g.drawText (juce::String (processor.getChannel()).paddedLeft ('0', 3), r.withTrimmedLeft (10.0f), juce::Justification::centredLeft, false);
+        g.setColour (juce::Colour (0xff5be08a));
+        g.setFont (titleFont (15.0f).withExtraKerningFactor (0.12f));
+        g.drawText ("CHANNEL", r.withTrimmedLeft (74.0f), juce::Justification::centredLeft, false);
+    }
+
+    g.setColour (juce::Colours::white);
+    g.setFont (titleFont (30.0f).withExtraKerningFactor (0.1f));
+    g.drawText ("DARK 4K", juce::Rectangle<float> (cLx(), 188.0f, cW(), 40.0f), juce::Justification::centred, false);
+    g.setColour (grey);
+    g.setFont (labelFont (12.0f).withExtraKerningFactor (0.3f));
+    g.drawText ("CHANNEL STRIP", juce::Rectangle<float> (cLx(), 230.0f, cW(), 16.0f), juce::Justification::centred, false);
 
     drawMeters (g, inMeterBox, inLvl, inHold, "INPUT");
     drawMeters (g, outMeterBox, outLvl, outHold, "OUTPUT");
 
     drawFaderScale (g);
     g.setColour (juce::Colour (0xff2a2c31));
-    g.setFont (titleFont (12.0f).withExtraKerningFactor (0.12f));
-    g.drawText ("FADER", 375, 284, 250, 18, juce::Justification::centred);
+    g.setFont (titleFont (11.0f).withExtraKerningFactor (0.12f));
+    g.drawText ("OUT", juce::Rectangle<float> (fader.getX() - 20.0f, fader.getY() - 22.0f, 110.0f, 16.0f), juce::Justification::centred, false);
 
-    // lectura del fader
-    const juce::Rectangle<float> rd (440.0f, 740.0f, 120.0f, 34.0f);
+    const juce::Rectangle<float> rd (cLx() + cW() * 0.5f - 52.0f, 770.0f, 104.0f, 34.0f);
     g.setColour (juce::Colour (0xff0b0d0b));
     g.fillRoundedRectangle (rd, 4.0f);
     g.setColour (juce::Colour (0xff3a3d44));
     g.drawRoundedRectangle (rd.reduced (0.5f), 4.0f, 1.2f);
     g.setColour (juce::Colour (0xff5be08a));
-    g.setFont (numberFont (20.0f));
+    g.setFont (numberFont (19.0f));
     const double lv = fader.getValue();
     g.drawText (lv <= -79.5 ? juce::String (juce::CharPointer_UTF8 ("-\xe2\x88\x9e dB")) : juce::String (lv, 1) + " dB", rd, juce::Justification::centred, false);
 
-    g.setColour (juce::Colour (0xff6c7078));
-    g.setFont (labelFont (10.0f).withExtraKerningFactor (0.3f));
-    g.drawText ("DARK SHAPE STUDIOS", 750, 770, 250, 14, juce::Justification::centred);
+    // ---- Barra inferior ----
+    g.setColour (juce::Colour (0xff8a8e97));
+    g.setFont (labelFont (12.0f).withExtraKerningFactor (0.3f));
+    g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, 822.0f, (float) kW, 57.0f), juce::Justification::centred, false);
+    g.setColour (juce::Colour (0xff5b5f68));
+    g.setFont (labelFont (12.0f));
+    g.drawText ("v1.0", juce::Rectangle<float> (12.0f, 822.0f, 100.0f, 57.0f), juce::Justification::centredLeft, false);
+    g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 212.0f, 822.0f, 200.0f, 57.0f), juce::Justification::centredRight, false);
 }

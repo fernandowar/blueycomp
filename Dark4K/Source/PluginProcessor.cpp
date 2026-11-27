@@ -167,7 +167,7 @@ void Dark4kAudioProcessor::updateFilters()
     const double sr = sampleRate;
     const Variation v = var;
     d4k::EqVoicing vo;
-    vo.black = prm[pEqBlack]->load() > 0.5f;
+    vo.black = true; // solo EQ Black
 
     // Filtros (18 dB/oct pasa-altos, 12 dB/oct pasa-bajos). Fuera de rango = apagados.
     const float hpfHz = prm[pHpf]->load() * v.hpf;
@@ -220,7 +220,7 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     const bool autoRelease = prm[pRel]->load() > 0.5f;
     const float attackCoeff = 1.0f - std::exp (-1.0f / (0.001f * kAttackMs[atkIdx] * v.atk * (float) sampleRate));
     const bool filtersOn = prm[pFiltIn]->load() > 0.5f;
-    const bool black = prm[pEqBlack]->load() > 0.5f;
+    const bool black = true; // solo EQ Black
     const float phaseSign = prm[pPhase]->load() > 0.5f ? -1.0f : 1.0f;
 
     inGain.setTargetValue (juce::Decibels::decibelsToGain (prm[pInTrim]->load() + v.trimDb));
