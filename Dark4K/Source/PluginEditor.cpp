@@ -158,29 +158,34 @@ void D4kLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int widt
     g.setGradientFill (juce::ColourGradient (juce::Colour (0xff000000), slot.getX(), 0.0f, juce::Colour (0xff2a2c31), slot.getRight(), 0.0f, false));
     g.fillRoundedRectangle (slot, 3.0f);
 
-    // tapa: bloque plateado plano con estrías y línea central
-    const float w = 36.0f, hh = (float) faderThumbHalf;
+    // tapa moderna: aluminio grafito con aro plateado, estrias y linea blanca (mismo lenguaje que las perillas)
+    const float w = 40.0f, hh = (float) faderThumbHalf;
     const juce::Rectangle<float> capR (cx - w * 0.5f, sliderPos - hh, w, hh * 2.0f);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.55f), 8, { 0, 5 }).drawForRectangle (g, capR.toNearestInt());
-    g.setColour (juce::Colour (0xff17181b));
-    g.fillRoundedRectangle (capR.expanded (1.0f), 2.5f);
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xffe7e8ea), capR.getX(), 0.0f, juce::Colour (0xffbfc1c6), capR.getRight(), 0.0f, false));
-    g.fillRoundedRectangle (capR, 2.0f);
-    // sombreado vertical (cara frontal curva)
-    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.45f), 0.0f, capR.getY(),
-                                             juce::Colours::black.withAlpha (0.22f), 0.0f, capR.getBottom(), false));
-    g.fillRoundedRectangle (capR, 2.0f);
-    for (int i = 1; i < 6; ++i)
+    juce::DropShadow (juce::Colours::black.withAlpha (0.65f), 9, { 0, 6 }).drawForRectangle (g, capR.toNearestInt());
+    g.setColour (juce::Colour (0xff0b0c0e));
+    g.fillRoundedRectangle (capR.expanded (1.0f), 5.0f);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff80838a), 0.0f, capR.getY(), juce::Colour (0xff1b1c20), 0.0f, capR.getBottom(), false));
+    g.fillRoundedRectangle (capR, 4.5f);
+    const auto face = capR.reduced (2.5f);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff4a4d54), 0.0f, face.getY(), juce::Colour (0xff22242a), 0.0f, face.getBottom(), false));
+    g.fillRoundedRectangle (face, 3.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.10f));
+    g.fillRoundedRectangle (face.withHeight (face.getHeight() * 0.42f), 3.0f);
+    for (int i = 0; i < 4; ++i)
     {
-        const float yy = capR.getY() + 4.0f + (capR.getHeight() - 8.0f) * (float) i / 6.0f;
-        if (std::abs (yy - capR.getCentreY()) < 3.0f) continue;
-        g.setColour (juce::Colours::black.withAlpha (0.28f));
-        g.drawLine (capR.getX() + 3.0f, yy, capR.getRight() - 3.0f, yy, 1.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.55f));
-        g.drawLine (capR.getX() + 3.0f, yy + 1.0f, capR.getRight() - 3.0f, yy + 1.0f, 1.0f);
+        const float off = 4.0f + 3.2f * (float) i;
+        for (float yy : { face.getY() + off, face.getBottom() - off })
+        {
+            g.setColour (juce::Colours::black.withAlpha (0.55f));
+            g.drawLine (face.getX() + 4.0f, yy, face.getRight() - 4.0f, yy, 1.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.12f));
+            g.drawLine (face.getX() + 4.0f, yy + 1.0f, face.getRight() - 4.0f, yy + 1.0f, 1.0f);
+        }
     }
-    g.setColour (juce::Colour (0xff0f1013));
-    g.fillRect (capR.getX() + 2.0f, capR.getCentreY() - 1.2f, capR.getWidth() - 4.0f, 2.4f);
+    g.setColour (juce::Colours::white.withAlpha (0.20f));
+    g.fillRect (face.getX() + 2.0f, capR.getCentreY() - 2.6f, face.getWidth() - 4.0f, 5.2f);
+    g.setColour (juce::Colour (0xfff4f4f6));
+    g.fillRoundedRectangle (face.getX() + 3.0f, capR.getCentreY() - 1.3f, face.getWidth() - 6.0f, 2.6f, 1.0f);
 }
 
 //==============================================================================
@@ -453,9 +458,9 @@ void Dark4kAudioProcessorEditor::resized()
     chDisplay = { 372.0f, 14.0f, 216.0f, 34.0f };
     place ("intrim", 437, 116, 23, 1.30f);
     btn ("phase", 504, 92, 56, 36);
-    btn ("solo", 394, 470, 68, 68);
-    btn ("cut", 394, 544, 68, 68);
-    fader.setBounds (cX + 120, 296, 80, 530);
+    btn ("solo", 400, 284, 68, 62);
+    btn ("cut", 492, 284, 68, 62);
+    fader.setBounds (cX + 80, 372, 80, 430);
     inMeterBox  = { 262.0f, 100.0f, 90.0f, 774.0f };
     outMeterBox = { 609.0f, 100.0f, 90.0f, 774.0f };
 
@@ -644,13 +649,23 @@ void Dark4kAudioProcessorEditor::drawFaderScale (juce::Graphics& g)
     const float top = b.getY() + (float) D4kLookAndFeel::faderThumbHalf, bottom = b.getBottom() - (float) D4kLookAndFeel::faderThumbHalf;
     const float cx = b.getCentreX();
     struct T { double v; const char* t; };
+    for (double v : { 10.0, 8.0, 4.0, 2.0, -2.5, -7.5, -15.0, -25.0, -35.0, -45.0 })
+    {
+        const float y = bottom - (float) fader.valueToProportionOfLength (v) * (bottom - top);
+        g.setColour (juce::Colour (0xff6b6e75));
+        g.drawLine (cx - 31.0f, y, cx - 26.0f, y, 1.0f);
+        g.drawLine (cx + 26.0f, y, cx + 31.0f, y, 1.0f);
+    }
     g.setFont (headFont (17.0f));
     for (auto t : { T { 12, "12" }, T { 6, "6" }, T { 0, "0" }, T { -5, "5" }, T { -10, "10" }, T { -20, "20" }, T { -30, "30" },
                     T { -40, "40" }, T { -50, "50" }, T { -80, "\xe2\x88\x9e" } })
     {
         const float y = bottom - (float) fader.valueToProportionOfLength (t.v) * (bottom - top);
+        g.setColour (juce::Colour (0xff3a3c42));
+        g.drawLine (cx - 38.0f, y, cx - 26.0f, y, 1.4f);
+        g.drawLine (cx + 26.0f, y, cx + 38.0f, y, 1.4f);
         g.setColour (juce::Colour (0xff34363c));
-        g.drawText (juce::CharPointer_UTF8 (t.t), juce::Rectangle<float> (cx + 32.0f, y - 10.0f, 40.0f, 20.0f), juce::Justification::centredLeft, false);
+        g.drawText (juce::CharPointer_UTF8 (t.t), juce::Rectangle<float> (cx + 42.0f, y - 10.0f, 40.0f, 20.0f), juce::Justification::centredLeft, false);
     }
 }
 
@@ -819,14 +834,10 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     drawMeters (g, outMeterBox, outLvl, outHold, "OUTPUT");
 
     drawFaderScale (g);
-    g.setColour (juce::Colour (0xff3a3c42));
-    g.setFont (headFont (13.0f).withExtraKerningFactor (0.2f));
-    g.drawText ("OUT", juce::Rectangle<float> (fader.getBounds().toFloat().getCentreX() - 40.0f, 280.0f, 80.0f, 16.0f), juce::Justification::centred, false);
-
-    g.setColour (juce::Colour (0xff3a3c42));
+g.setColour (juce::Colour (0xff3a3c42));
     g.setFont (headFont (13.0f));
-    g.drawText ("OUT TRIM", juce::Rectangle<float> ((float) cX + 14.0f, 816.0f, 104.0f, 18.0f), juce::Justification::centred, false);
-    const juce::Rectangle<float> rd ((float) cX + 14.0f, 838.0f, 104.0f, 36.0f);
+    g.drawText ("OUT TRIM", juce::Rectangle<float> ((float) (cX + cR) * 0.5f - 52.0f, 812.0f, 104.0f, 18.0f), juce::Justification::centred, false);
+    const juce::Rectangle<float> rd ((float) (cX + cR) * 0.5f - 52.0f, 834.0f, 104.0f, 36.0f);
     g.setColour (juce::Colour (0xff050806)); g.fillRoundedRectangle (rd, 4.0f);
     g.setColour (juce::Colour (0xff3a3d45)); g.drawRoundedRectangle (rd.reduced (0.5f), 4.0f, 1.0f);
     g.setColour (juce::Colour (0xff4fe08a));
@@ -840,6 +851,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v3.5", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.6", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
