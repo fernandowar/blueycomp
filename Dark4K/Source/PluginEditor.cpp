@@ -281,7 +281,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
     addKnob ("hmfq", "", "Q", green, 1.5, qMarks);
     addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
-    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
+    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.6" } });
     addKnob ("lmfq", "", "Q", blue, 1.5, qMarks);
     addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
     addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
@@ -289,7 +289,6 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("threshold", "THRESHOLD", "dB", silver, 10.0,
              { { 10, "+10" }, { 5, "+5" }, { 0, "0" }, { -5, "-5" }, { -10, "-10" }, { -15, "-15" }, { -20, "-20" } });
     addKnob ("attack", "ATTACK", "ms", silver, 3.0, { { 0, "0.1" }, { 1, "0.3" }, { 2, "1" }, { 3, "3" }, { 4, "10" }, { 5, "30" } });
-    addKnob ("makeup", "MAKEUP", "dB", silver, 0.0, { { 0, "0" }, { 3, "3" }, { 6, "6" }, { 9, "9" }, { 12, "12" }, { 15, "15" } });
     addKnob ("gatethr", "THRESHOLD", "dB", silver, -70.0, { { -70, "OFF" }, { -50, "-50" }, { -30, "-30" }, { -10, "-10" }, { 0, "0" } });
     addKnob ("gaterange", "RANGE", "dB", silver, 0.0, { { 0, "0" }, { 10, "10" }, { 20, "20" }, { 30, "30" }, { 40, "40" } });
 
@@ -414,13 +413,14 @@ void Dark4kAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
 
 void Dark4kAudioProcessorEditor::resized()
 {
-    auto place = [this] (const char* id, float cx, float cy, float R)
+    auto place = [this] (const char* id, float cx, float cy, float R0)
     {
+        const float R = R0 * 0.88f;   // tamano general de las perillas
         for (auto& k : knobs)
             if (k->slider.getName() == id)
             {
                 k->slider.setBounds (juce::Rectangle<float> (R * 2.0f, R * 2.0f).withCentre ({ cx, cy }).toNearestInt());
-                const bool big = R >= 30.0f;
+                const bool big = R0 >= 30.0f;
                 k->scaleR = R + (big ? 9.0f : 8.0f);
                 k->labelR = R + (big ? 20.0f : 17.0f);
                 k->fontSize = big ? 11.0f : 10.0f;
@@ -454,10 +454,9 @@ void Dark4kAudioProcessorEditor::resized()
     outMeterBox = { 609.0f, 100.0f, 90.0f, 744.0f };
 
     // Derecha: Dark VCA + puerta
-    place ("threshold", 792, 140, 34);
+    place ("threshold", 796, 190, 36);
     btnAuto.setBounds (872, 96, 70, 34);
-    place ("attack", 886, 262, 30);
-    place ("makeup", 776, 322, 28);
+    place ("attack", 884, 318, 32);
     btn ("dynin", 800, 412, 62, 34);
     place ("gatethr", 880, 512, 30);
     place ("gaterange", 776, 592, 28);
@@ -816,6 +815,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.5", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v2.6", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
