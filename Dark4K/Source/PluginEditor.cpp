@@ -281,7 +281,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
     addKnob ("hmfq", "", "Q", green, 1.5, qMarks);
     addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
-    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.6" } });
+    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.7" } });
     addKnob ("lmfq", "", "Q", blue, 1.5, qMarks);
     addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
     addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
@@ -415,7 +415,7 @@ void Dark4kAudioProcessorEditor::resized()
 {
     auto place = [this] (const char* id, float cx, float cy, float R0)
     {
-        const float R = R0 * 0.88f;   // tamano general de las perillas
+        const float R = R0 * 1.20f;   // tamano general de las perillas
         for (auto& k : knobs)
             if (k->slider.getName() == id)
             {
@@ -441,7 +441,7 @@ void Dark4kAudioProcessorEditor::resized()
     place ("hmfg", 74, 384, 21); place ("hmff", 176, 422, 21); place ("hmfq", 74, 478, 21);
     btn ("eqin", 108, 538, 64, 30);
     place ("lmfg", 74, 626, 21); place ("lmff", 176, 664, 21); place ("lmfq", 74, 720, 21);
-    place ("lff", 176, 782, 21); place ("lfg", 74, 822, 21);
+    place ("lff", 176, 776, 21); place ("lfg", 74, 814, 21);
     btn ("lfbell", 172, 826, 62, 28);
 
     // Centro
@@ -815,6 +815,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.6", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v2.7", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
