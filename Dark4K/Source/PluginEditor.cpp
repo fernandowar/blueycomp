@@ -556,7 +556,7 @@ void Dark4kAudioProcessorEditor::drawEqScreen (juce::Graphics& g, juce::Rectangl
     if (v ("hfbell") > 0.5f) hf.peak (sr, v ("hff"), vo.bellGain (gHf), vo.bellQFixed());
     else                      hf.highShelf (sr, vo.hfShelfFreq (v ("hff")), vo.shelfGain (gHf), vo.shelfQHf());
     hmf.peak (sr, vo.hmfFreq (v ("hmff")), vo.midGain (gHm, v ("hmfq")), vo.bellQ (v ("hmfq")));
-    lmf.peak (sr, vo.lmfFreq (v ("lmff")), vo.midGain (gLm, v ("lmfq")), vo.bellQ (v ("lmfq")));
+    lmf.peak (sr, vo.lmfFreq (v ("lmff")), vo.midGain (gLm, v ("lmfq")), vo.bellQ (v ("lmfq"), true));
     if (v ("lfbell") > 0.5f) lf.peak (sr, v ("lff"), vo.bellGain (gLf), vo.bellQFixed());
     else                      lf.lowShelf (sr, vo.lfShelfFreq (v ("lff")), vo.shelfGain (gLf), vo.shelfQLf());
     const bool hpOn = v ("hpf") > 16.5f, lpOn = v ("lpf") < 21900.0f;

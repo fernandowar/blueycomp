@@ -204,7 +204,7 @@ void Dark4kAudioProcessor::updateFilters()
         else                              hf.highShelf (sr, vo.hfShelfFreq (f), vo.shelfGain (gHf), vo.shelfQHf());
     }
     if (hmfOn) { const double q = prm[pHmfQ]->load(); hmf.peak (sr, vo.hmfFreq (prm[pHmfF]->load() * v.eqFreq[1]), vo.midGain (gHm, q), vo.bellQ (q)); }
-    if (lmfOn) { const double q = prm[pLmfQ]->load(); lmf.peak (sr, vo.lmfFreq (prm[pLmfF]->load() * v.eqFreq[2]), vo.midGain (gLm, q), vo.bellQ (q)); }
+    if (lmfOn) { const double q = prm[pLmfQ]->load(); lmf.peak (sr, vo.lmfFreq (prm[pLmfF]->load() * v.eqFreq[2]), vo.midGain (gLm, q), vo.bellQ (q, true)); }
     if (lfOn)
     {
         const double f = prm[pLfF]->load() * v.eqFreq[3];

@@ -86,10 +86,18 @@ struct Biquad
 struct EqVoicing
 {
     bool black = true;
-    // Q: la perilla va de 3 (angosto, izquierda) a .5 (ancho, derecha). Calibrado con curvas de referencia:
-    // 1.5 -> Q real 0.55, 2 -> Q real 1.03; el rango completo da ~0.16 .. 3.6 (equivale al 0.1-3.5 del manual).
-    static double qMap (double label) { return 0.55 * std::pow (3.51, std::clamp (label, 0.5, 3.0) - 1.5); }
-    double bellQ (double q, double = 0.0) const { return qMap (q); }
+    // Q: la perilla va de 3 (angosto, izquierda) a .5 (ancho, derecha). Puntos medidos sobre curvas de referencia
+    // (HMF: Q .1 -> 0.175, 3.5 -> 1.42; LMF es ~1.22x mas angosta), interpolados en escala logaritmica.
+    static double qMap (double label, bool lmf = false)
+    {
+        static const double x[4] { 0.5, 1.5, 2.0, 3.0 }, q[4] { 0.175, 0.55, 0.84, 1.42 };
+        const double l = std::clamp (label, 0.5, 3.0);
+        double r = q[3];
+        for (int i = 0; i < 3; ++i)
+            if (l <= x[i + 1]) { r = q[i] * std::pow (q[i + 1] / q[i], (l - x[i]) / (x[i + 1] - x[i])); break; }
+        return lmf ? r * 1.22 : r;
+    }
+    double bellQ (double label, bool lmf = false) const { return qMap (label, lmf); }
     double bellQFixed() const { return 0.84; }
     double shelfQHf() const { return 0.42; }
     double shelfQLf() const { return 0.45; }
@@ -102,7 +110,7 @@ struct EqVoicing
     static double bellGain (double g) { return g * 1.2; }
     static double midGain (double g, double label)
     {
-        static const double x[4] { 0.5, 1.5, 2.0, 3.0 }, m[4] { 1.0, 1.02, 1.157, 1.2 };
+        static const double x[4] { 0.5, 1.5, 2.0, 3.0 }, m[4] { 0.982, 1.02, 1.157, 1.2 };
         const double l = std::clamp (label, 0.5, 3.0);
         for (int i = 0; i < 3; ++i)
             if (l <= x[i + 1]) return g * (m[i] + (m[i + 1] - m[i]) * (l - x[i]) / (x[i + 1] - x[i]));
