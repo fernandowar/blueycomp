@@ -48,53 +48,55 @@ void D4kLookAndFeel::paintKnob (juce::Graphics& g, juce::Point<float> c, float R
 
     juce::Path body;
     body.addEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.75f), (int) (R * 0.45f), { 0, (int) (R * 0.14f) }).drawForPath (g, body);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.7f), (int) (R * 0.55f), { 0, (int) (R * 0.18f) }).drawForPath (g, body);
 
-    // falda estriada
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2c2e33), c.x - R * 0.5f, c.y - R * 0.7f,
-                                             juce::Colour (0xff060607), c.x + R * 0.6f, c.y + R * 0.8f, false));
-    g.fillPath (body);
-    const int ridges = juce::jlimit (40, 120, (int) (R * 1.8f));
-    for (int i = 0; i < ridges; ++i)
+    // aro metalico facetado (segmentos con luz desde arriba-izquierda)
+    g.setColour (juce::Colour (0xff1d1e22));
+    g.fillEllipse (c.x - R - 0.8f, c.y - R - 0.8f, R * 2.0f + 1.6f, R * 2.0f + 1.6f);
+    const int segs = 20;
+    for (int i = 0; i < segs; ++i)
     {
-        const float a = (float) i * 2.0f * pi / (float) ridges;
-        const auto p1 = polar (c, a, R * 0.86f), p2 = polar (c, a, R * 0.995f);
-        const float lit = 0.5f + 0.5f * std::cos (a + 0.8f);
-        g.setColour (juce::Colour (0xff6a6d75).withAlpha (0.12f + 0.38f * lit));
-        g.drawLine (p1.x, p1.y, p2.x, p2.y, juce::jmax (0.9f, R * 0.018f));
+        const float a0 = (float) i * 2.0f * pi / (float) segs, a1 = a0 + 2.0f * pi / (float) segs;
+        const float am = 0.5f * (a0 + a1);
+        const float lit = 0.5f + 0.5f * std::cos (am - 5.5f);
+        const float facet = (i % 2 == 0) ? 0.0f : -0.10f;
+        juce::Path seg;
+        seg.addPieSegment (c.x - R, c.y - R, R * 2.0f, R * 2.0f, a0, a1, 0.71f);
+        g.setColour (juce::Colour (0xff80838b).interpolatedWith (juce::Colour (0xfff0f1f3), juce::jlimit (0.0f, 1.0f, lit + facet)));
+        g.fillPath (seg);
+    }
+    g.setColour (juce::Colour (0xff3a3c42).withAlpha (0.6f));
+    g.drawEllipse (c.x - R * 0.85f, c.y - R * 0.85f, R * 1.70f, R * 1.70f, 0.8f);
+
+    // muesca oscura del aro, en la posicion del indicador
+    {
+        juce::Path notch;
+        const float nw = R * 0.16f, nh = R * 0.11f;
+        notch.addRectangle (-nw * 0.5f, -R * 0.96f, nw, nh);
+        g.setColour (juce::Colour (0xff1c1d21));
+        g.fillPath (notch, juce::AffineTransform::rotation (angle).translated (c));
     }
 
-    // tapa
-    const float cr = R * 0.80f;
-    g.setColour (juce::Colours::black.withAlpha (0.9f));
-    g.fillEllipse (c.x - cr - 1.5f, c.y - cr - 1.5f, (cr + 1.5f) * 2.0f, (cr + 1.5f) * 2.0f);
-
-    const juce::Colour top = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.28f : 0.35f);
-    const juce::Colour bot = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.55f : 0.45f);
-    g.setGradientFill (juce::ColourGradient (top, c.x - cr * 0.55f, c.y - cr * 0.7f, bot, c.x + cr * 0.7f, c.y + cr * 0.9f, false));
+    // tapa plana de color
+    const float cr = R * 0.71f;
+    g.setColour (juce::Colour (0xff17181b));
+    g.fillEllipse (c.x - cr - 1.6f, c.y - cr - 1.6f, (cr + 1.6f) * 2.0f, (cr + 1.6f) * 2.0f);
+    const juce::Colour top = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.10f : 0.22f);
+    const juce::Colour bot = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.16f : 0.18f);
+    g.setGradientFill (juce::ColourGradient (top, c.x, c.y - cr, bot, c.x, c.y + cr, false));
     g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.16f));
+    g.drawEllipse (c.x - cr + 1.0f, c.y - cr + 1.0f, cr * 2.0f - 2.0f, cr * 2.0f - 2.0f, 1.0f);
 
-    // cara superior ligeramente hundida
-    const float ir = cr * 0.72f;
-    g.setGradientFill (juce::ColourGradient (bot.withAlpha (0.55f), c.x - ir * 0.6f, c.y - ir * 0.8f,
-                                             top.withAlpha (0.45f), c.x + ir * 0.6f, c.y + ir * 0.8f, false));
-    g.drawEllipse (c.x - ir, c.y - ir, ir * 2.0f, ir * 2.0f, 1.0f);
-
-    // brillo de borde
-    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (coloured ? 0.40f : 0.60f), c.x - cr * 0.7f, c.y - cr * 0.7f,
-                                             juce::Colours::transparentWhite, c.x + cr * 0.2f, c.y + cr * 0.2f, false));
-    g.drawEllipse (c.x - cr + 0.8f, c.y - cr + 0.8f, cr * 2.0f - 1.6f, cr * 2.0f - 1.6f, 1.2f);
-
-    // indicador
-    const auto p1 = polar (c, angle, cr * 0.18f), p2 = polar (c, angle, cr * 0.97f);
+    // indicador: barra blanca (oscura en tapas claras)
+    const float pw = juce::jmax (3.0f, R * 0.12f);
     juce::Path ptr;
-    ptr.startNewSubPath (p1);
-    ptr.lineTo (p2);
-    g.setColour (juce::Colours::black.withAlpha (0.35f));
-    g.strokePath (ptr, juce::PathStrokeType (juce::jmax (3.0f, R * 0.11f) + 1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::butt),
-                  juce::AffineTransform::translation (0.0f, 0.8f));
-    g.setColour (coloured ? juce::Colour (0xfff6f6f8) : juce::Colour (0xff15161a));
-    g.strokePath (ptr, juce::PathStrokeType (juce::jmax (2.6f, R * 0.095f), juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+    ptr.addRectangle (-pw * 0.5f, -cr * 0.94f, pw, cr * 0.94f);
+    const auto xf = juce::AffineTransform::rotation (angle).translated (c);
+    g.setColour (juce::Colours::black.withAlpha (0.25f));
+    g.fillPath (ptr, xf.translated (0.0f, 0.9f));
+    g.setColour (coloured ? juce::Colour (0xfff7f7f9) : juce::Colour (0xff1a1b1f));
+    g.fillPath (ptr, xf);
 }
 
 void D4kLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -419,7 +421,7 @@ void Dark4kAudioProcessorEditor::drawKnobScale (juce::Graphics& g, Knob& k)
         const float a = D4kLookAndFeel::startAngle + prop * (D4kLookAndFeel::endAngle - D4kLookAndFeel::startAngle);
         const auto p = polar (c, a, k.scaleR);
         g.setColour (dot);
-        g.fillEllipse (p.x - 1.7f, p.y - 1.7f, 3.4f, 3.4f);
+        g.fillEllipse (p.x - 2.1f, p.y - 2.1f, 4.2f, 4.2f);
         if (m.second.isNotEmpty())
         {
             const auto q = polar (c, a, k.labelR);

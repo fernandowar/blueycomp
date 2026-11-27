@@ -15,12 +15,12 @@ namespace D4kColours
     static const juce::Colour title  { 0xffffffff };
     static const juce::Colour grey   { 0xff8d9098 };
     static const juce::Colour amber  { 0xffffb347 };
-    static const juce::Colour red    { 0xffb5252b };
-    static const juce::Colour green  { 0xff2f7d4a };
-    static const juce::Colour blue   { 0xff2f6fb5 };
+    static const juce::Colour red    { 0xffd8343f };
+    static const juce::Colour green  { 0xff2faa7c };
+    static const juce::Colour blue   { 0xff3f7fd0 };
     static const juce::Colour brown  { 0xff1b1c20 };
-    static const juce::Colour white  { 0xffd9dadd };
-    static const juce::Colour silver { 0xff9fa2a9 };
+    static const juce::Colour white  { 0xffdcdde1 };
+    static const juce::Colour silver { 0xffb4b7be };
 }
 
 class D4kLookAndFeel : public juce::LookAndFeel_V4
