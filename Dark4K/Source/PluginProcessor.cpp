@@ -5,6 +5,16 @@ constexpr float Dark4kAudioProcessor::kAttackMs[6];
 
 namespace
 {
+    // Perilla Q estilo SSL: 3 (angosto) a la izquierda ... 0.5 (ancho) a la derecha, repartidos en 5 puntos equidistantes
+    juce::NormalisableRange<float> qRange()
+    {
+        static const float pos[5] { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f }, val[5] { 3.0f, 2.0f, 1.5f, 1.0f, 0.5f };
+        return juce::NormalisableRange<float> (
+            0.5f, 3.0f,
+            [] (float, float, float p) { p = juce::jlimit (0.0f, 1.0f, p); for (int i = 0; i < 4; ++i) if (p <= pos[i + 1]) return val[i] + (val[i + 1] - val[i]) * (p - pos[i]) / (pos[i + 1] - pos[i]); return val[4]; },
+            [] (float, float, float v) { v = juce::jlimit (0.5f, 3.0f, v); for (int i = 0; i < 4; ++i) if (v >= val[i + 1]) return pos[i] + (pos[i + 1] - pos[i]) * (v - val[i]) / (val[i + 1] - val[i]); return 1.0f; },
+            [] (float, float, float v) { return juce::jlimit (0.5f, 3.0f, std::round (v * 100.0f) / 100.0f); });
+    }
     // Rango logarítmico para frecuencias
     juce::NormalisableRange<float> logRange (float lo, float hi, float step = 0.0f)
     {
@@ -51,10 +61,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     sw ("hfbell", "HF Bell", false);
     db ("hmfg", "HMF Gain", -15.0f, 15.0f, 0.0f);
     hz ("hmff", "HMF Freq", 600.0f, 7000.0f, 3000.0f);
-    l.add (std::make_unique<F> (juce::ParameterID { "hmfq", 1 }, "HMF Q", logRange (0.1f, 3.5f, 0.01f), 1.0f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
+    l.add (std::make_unique<F> (juce::ParameterID { "hmfq", 1 }, "HMF Q", qRange(), 1.5f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lmfg", "LMF Gain", -15.0f, 15.0f, 0.0f);
     hz ("lmff", "LMF Freq", 200.0f, 2500.0f, 800.0f);
-    l.add (std::make_unique<F> (juce::ParameterID { "lmfq", 1 }, "LMF Q", logRange (0.1f, 3.5f, 0.01f), 1.0f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
+    l.add (std::make_unique<F> (juce::ParameterID { "lmfq", 1 }, "LMF Q", qRange(), 1.5f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lfg", "LF Gain", -15.0f, 15.0f, 0.0f);
     hz ("lff", "LF Freq", 30.0f, 450.0f, 100.0f);
     sw ("lfbell", "LF Bell", false);

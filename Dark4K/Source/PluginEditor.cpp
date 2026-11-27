@@ -233,7 +233,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
 {
     using M = std::vector<std::pair<double, juce::String>>;
     const M gainMarks { { -15, "-15" }, { -10, "" }, { -5, "-5" }, { 0, "0" }, { 5, "5" }, { 10, "" }, { 15, "15" } };
-    const M qMarks { { 0.1, ".1" }, { 0.5, "" }, { 1.0, "1" }, { 2.0, "2" }, { 3.5, "3.5" } };
+    const M qMarks { { 3.0, "3" }, { 2.5, "" }, { 2.0, "2" }, { 1.75, "" }, { 1.5, "1.5" }, { 1.25, "" }, { 1.0, "1" }, { 0.75, "" }, { 0.5, ".5" } };
 
     addKnob ("hpf", "", "Hz", white, 16.0, { { 16, "OUT" }, { 50, "50" }, { 100, "100" }, { 200, "200" }, { 350, "350" } });
     addKnob ("lpf", "", "kHz", white, 22000.0, { { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 22000, "OUT" } });
@@ -241,10 +241,10 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("hff", "", "kHz", red, 8000.0, { { 1500, "1.5" }, { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 16000, "16" } });
     addKnob ("hmfg", "", "dB", green, 0.0, gainMarks);
     addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
-    addKnob ("hmfq", "", "Q", green, 1.0, qMarks);
+    addKnob ("hmfq", "", "Q", green, 1.5, qMarks);
     addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
     addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
-    addKnob ("lmfq", "", "Q", blue, 1.0, qMarks);
+    addKnob ("lmfq", "", "Q", blue, 1.5, qMarks);
     addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
     addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
     addKnob ("intrim", "IN TRIM", "dB", white, 0.0, { { -20, "-20" }, { -10, "" }, { 0, "0" }, { 10, "" }, { 20, "+20" } });
