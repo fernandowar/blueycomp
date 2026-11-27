@@ -699,6 +699,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, 822.0f, (float) kW, 57.0f), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v1.0", juce::Rectangle<float> (12.0f, 822.0f, 100.0f, 57.0f), juce::Justification::centredLeft, false);
+    g.drawText ("v2.1", juce::Rectangle<float> (12.0f, 822.0f, 100.0f, 57.0f), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 212.0f, 822.0f, 200.0f, 57.0f), juce::Justification::centredRight, false);
 }
