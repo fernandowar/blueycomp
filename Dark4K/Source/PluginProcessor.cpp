@@ -42,14 +42,30 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     db ("intrim", "Input Trim", -20.0f, 20.0f, 0.0f);
     sw ("phase", "Phase", false);
 
-    // Fader de salida: -80 (-inf) a +12 dB, curva con más resolución cerca de 0 dB
+    // Fader de salida: -80 (-inf) a +12 dB. Marcas equidistantes como en la referencia:
+    // 12, 6, 0, -5, -10, -20, -30, -40, -50, -inf
     {
-        juce::NormalisableRange<float> r (-80.0f, 12.0f, 0.1f);
-        r.setSkewForCentre (-18.0f);
+        static const float kStops[10] = { -80.0f, -50.0f, -40.0f, -30.0f, -20.0f, -10.0f, -5.0f, 0.0f, 6.0f, 12.0f };
+        auto from01 = [] (float, float, float p)
+        {
+            p = juce::jlimit (0.0f, 1.0f, p) * 9.0f;
+            const int i = juce::jmin (8, (int) p);
+            return kStops[i] + (p - (float) i) * (kStops[i + 1] - kStops[i]);
+        };
+        auto to01 = [] (float, float, float v)
+        {
+            v = juce::jlimit (-80.0f, 12.0f, v);
+            int i = 0;
+            while (i < 8 && v > kStops[i + 1]) ++i;
+            return ((float) i + (v - kStops[i]) / (kStops[i + 1] - kStops[i])) / 9.0f;
+        };
+        auto snap = [] (float, float, float v) { return std::round (v * 10.0f) / 10.0f; };
+        juce::NormalisableRange<float> r (-80.0f, 12.0f, from01, to01, snap);
         l.add (std::make_unique<F> (juce::ParameterID { "level", 1 }, "Fader", r, 0.0f, Attr().withLabel ("dB")));
     }
     sw ("bypass", "Bypass", false);
     sw ("cut", "Cut", false);
+    sw ("solo", "Solo", false);
 
     sw ("eqin", "EQ In", true);
     sw ("eqblack", "EQ Black", false);
@@ -96,7 +112,7 @@ Dark4kAudioProcessor::Dark4kAudioProcessor()
 {
     const char* ids[pCount] = { "intrim", "phase", "level", "bypass", "eqin", "eqblack", "filtin", "hpf", "lpf",
                                 "hfg", "hff", "hfbell", "hmfg", "hmff", "hmfq", "lmfg", "lmff", "lmfq", "lfg", "lff", "lfbell",
-                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange", "cut" };
+                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange", "cut", "solo" };
     for (int i = 0; i < pCount; ++i) prm[i] = apvts.getRawParameterValue (ids[i]);
 
     // Cada instancia nueva nace como un canal distinto de la consola
@@ -231,6 +247,7 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     const float attackCoeff = 1.0f - std::exp (-1.0f / (0.001f * kAttackMs[atkIdx] * v.atk * (float) sampleRate));
     const bool filtersOn = prm[pFiltIn]->load() > 0.5f;
     const bool black = true; // solo EQ Black
+    const bool soloDelta = prm[pSolo]->load() > 0.5f;
     const float phaseSign = prm[pPhase]->load() > 0.5f ? -1.0f : 1.0f;
 
     inGain.setTargetValue (juce::Decibels::decibelsToGain (prm[pInTrim]->load() + v.trimDb));
@@ -386,7 +403,8 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         {
             const float o = w[ch] * og;
             outPk[ch] = juce::jmax (outPk[ch], std::abs (o));
-            data[ch][i] = dry[ch] + m * (o - dry[ch]);
+            const float mixed = dry[ch] + m * (o - dry[ch]);
+            data[ch][i] = soloDelta ? (o - dry[ch]) * m : mixed;   // SOLO = escuchar solo lo que agrega el strip
         }
     }
 
