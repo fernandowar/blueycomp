@@ -5,7 +5,7 @@ using namespace D4kColours;
 
 namespace
 {
-    constexpr int kW = 960, kH = 910;
+    constexpr int kW = 960, kH = 940;
     constexpr float K = 1.5f;
 
     juce::Typeface::Ptr loadTypeface (const char* data, int size)
@@ -328,7 +328,7 @@ Dark4kAudioProcessorEditor::~Dark4kAudioProcessorEditor()
 namespace Lay
 {
     constexpr int leftW = 250, rightX = 710, meterInX = 250, cX = 360, cR = 600;
-    constexpr int darkH = 268, barY = 864;
+    constexpr int darkH = 268, barY = 894;
 }
 
 void Dark4kAudioProcessorEditor::buildTexture()
@@ -441,17 +441,17 @@ void Dark4kAudioProcessorEditor::resized()
     place ("hmfg", 74, 384, 21); place ("hmff", 176, 422, 21); place ("hmfq", 74, 478, 21);
     btn ("eqin", 108, 530, 64, 30);
     place ("lmfg", 74, 616, 21); place ("lmff", 176, 652, 21); place ("lmfq", 74, 708, 21);
-    place ("lff", 176, 798, 21); place ("lfg", 74, 826, 21);
-    btn ("lfbell", 176, 840, 60, 22);
+    place ("lff", 176, 806, 21); place ("lfg", 74, 838, 21);
+    btn ("lfbell", 176, 852, 60, 24);
 
     // Centro
     btn ("bypass", 266, 14, 58, 32);
     chDisplay = { 372.0f, 14.0f, 216.0f, 34.0f };
     place ("intrim", 450, 120, 34);
     btn ("phase", 526, 98, 52, 40);
-    fader.setBounds (cX + 80, 296, 80, 500);
-    inMeterBox  = { 262.0f, 100.0f, 90.0f, 744.0f };
-    outMeterBox = { 609.0f, 100.0f, 90.0f, 744.0f };
+    fader.setBounds (cX + 80, 296, 80, 530);
+    inMeterBox  = { 262.0f, 100.0f, 90.0f, 774.0f };
+    outMeterBox = { 609.0f, 100.0f, 90.0f, 774.0f };
 
     // Derecha: Dark VCA + puerta
     place ("threshold", 796, 190, 36);
@@ -695,7 +695,7 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawImageAt (texture, 0, 0);
 
     // tornillos de rack
-    for (float y : { 14.0f, 604.0f, 850.0f })
+    for (float y : { 14.0f, 604.0f, 872.0f })
     {
         drawScrew (g, { 12.0f, y });
         drawScrew (g, { (float) kW - 12.0f, y });
@@ -738,8 +738,8 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     label ("EQ", 14.0f, 545.0f);
     groove (570.0f, 10.0f, 240.0f);
     label ("LMF", 14.0f, 680.0f);
-    bracket (762.0f, 10.0f, 240.0f, 16.0f);
-    label ("LF", 14.0f, 806.0f);
+    bracket (768.0f, 10.0f, 240.0f, 16.0f);
+    label ("LF", 14.0f, 820.0f);
 
     // ---- Derecha ----
     label ("COMPRESS", 726.0f, 30.0f, 16.0f);
@@ -802,7 +802,7 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (headFont (13.0f).withExtraKerningFactor (0.2f));
     g.drawText ("OUT", juce::Rectangle<float> ((float) cX, 284.0f, (float) (cR - cX), 16.0f), juce::Justification::centred, false);
 
-    const juce::Rectangle<float> rd ((float) (cX + cR) * 0.5f - 54.0f, 808.0f, 108.0f, 36.0f);
+    const juce::Rectangle<float> rd ((float) (cX + cR) * 0.5f - 54.0f, 838.0f, 108.0f, 36.0f);
     g.setColour (juce::Colour (0xff050806)); g.fillRoundedRectangle (rd, 4.0f);
     g.setColour (juce::Colour (0xff3a3d45)); g.drawRoundedRectangle (rd.reduced (0.5f), 4.0f, 1.0f);
     g.setColour (juce::Colour (0xff4fe08a));
@@ -816,6 +816,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.9", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v3.0", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
