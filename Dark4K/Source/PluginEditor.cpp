@@ -42,50 +42,97 @@ namespace
 //==============================================================================
 void D4kLookAndFeel::paintKnob (juce::Graphics& g, juce::Point<float> c, float R, float proportion, juce::Colour capCol)
 {
-    // Estilo Waves SSL: falda gris oscura biselada + tapa mate saturada + linea blanca fina
+    // Cilindro visto desde arriba/adelante: tapa mate de color con aro plateado,
+    // cuerpo de aluminio estriado debajo, base negra. Indicador blanco grueso y plano.
     const float angle = startAngle + proportion * (endAngle - startAngle);
     const bool coloured = capCol != silver && capCol != white;
 
+    const float cr = R * 0.80f;                       // radio de la tapa
+    const float h  = R * 0.26f;                       // altura visible del cuerpo
+    const juce::Point<float> cc (c.x, c.y - R * 0.12f);   // centro de la tapa
+    const float botY = cc.y + h;
+
+    // sombra proyectada sobre la chapa
+    juce::Path shadowP;
+    shadowP.addEllipse (cc.x - cr, botY - cr, cr * 2.0f, cr * 2.0f);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.65f), (int) (R * 0.45f), { (int) (R * 0.10f), (int) (R * 0.18f) }).drawForPath (g, shadowP);
+
+    // base negra
+    g.setColour (juce::Colour (0xff050506));
+    g.fillEllipse (cc.x - cr * 1.0f, botY - cr * 0.98f + R * 0.05f, cr * 2.0f, cr * 2.0f);
+
+    // cuerpo: rectangulo + elipse inferior, relleno cilindrico
     juce::Path body;
-    body.addEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.60f), (int) (R * 0.55f), { (int) (R * 0.08f), (int) (R * 0.22f) }).drawForPath (g, body);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.85f), (int) (R * 0.14f), { 0, (int) (R * 0.06f) }).drawForPath (g, body);
-
-    // falda: cilindro gris oscuro, luz arriba
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff6a6d73), c.x, c.y - R, juce::Colour (0xff17181b), c.x, c.y + R, false));
-    g.fillEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.8f));
-    g.drawEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f, 1.0f);
-
-    // bisel interior
-    const float rb = R * 0.86f;
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2b2d31), c.x, c.y - rb, juce::Colour (0xff4f5258), c.x, c.y + rb, false));
-    g.fillEllipse (c.x - rb, c.y - rb, rb * 2.0f, rb * 2.0f);
-
-    // tapa mate
-    const float cr = R * 0.78f;
-    const juce::Colour top = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.12f : 0.18f);
-    const juce::Colour bot = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.30f : 0.28f);
-    g.setGradientFill (juce::ColourGradient (top, c.x, c.y - cr, bot, c.x, c.y + cr, false));
-    g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
-    // brillo suave superior
+    body.addEllipse (cc.x - cr, botY - cr, cr * 2.0f, cr * 2.0f);
+    body.addRectangle (cc.x - cr, cc.y, cr * 2.0f, h);
     {
-        juce::ColourGradient sg (juce::Colours::white.withAlpha (0.16f), c.x, c.y - cr * 0.55f,
-                                 juce::Colours::transparentWhite, c.x, c.y + cr * 0.2f, true);
-        g.setGradientFill (sg);
-        g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
+        juce::ColourGradient cg (juce::Colour (0xff3a3c40), cc.x - cr, 0.0f, juce::Colour (0xff3a3c40), cc.x + cr, 0.0f, false);
+        cg.addColour (0.18, juce::Colour (0xffd0d2d4));
+        cg.addColour (0.42, juce::Colour (0xff9a9c9e));
+        cg.addColour (0.75, juce::Colour (0xff6c6e72));
+        g.setGradientFill (cg);
+        g.fillPath (body);
     }
-    g.setColour (juce::Colours::black.withAlpha (0.55f));
-    g.drawEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f, 1.0f);
+    // estrias verticales (solo en la franja visible del cuerpo)
+    {
+        juce::Graphics::ScopedSaveState ss (g);
+        juce::Path vis;
+        vis.addRectangle (cc.x - cr, cc.y, cr * 2.0f, h + cr);
+        juce::Path clipP;
+        clipP.addEllipse (cc.x - cr, botY - cr, cr * 2.0f, cr * 2.0f);
+        clipP.addRectangle (cc.x - cr, cc.y, cr * 2.0f, h);
+        g.reduceClipRegion (juce::Rectangle<int> ((int) (cc.x - cr), (int) cc.y, (int) (cr * 2.0f) + 1, (int) h + 2));
+        for (int i = -5; i <= 5; ++i)
+        {
+            const float x = cc.x + std::sin ((float) i * 0.30f) * cr;
+            g.setColour (juce::Colours::black.withAlpha (0.20f));
+            g.drawLine (x, cc.y, x, cc.y + h + R * 0.2f, 1.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.14f));
+            g.drawLine (x + 1.2f, cc.y, x + 1.2f, cc.y + h + R * 0.2f, 1.0f);
+        }
+        // linea negra de referencia (visible cuando el indicador apunta hacia el frente)
+        const float front = -std::cos (angle);
+        if (front > 0.05f)
+        {
+            g.setColour (juce::Colours::black.withAlpha (0.85f * front));
+            const float x = cc.x + std::sin (angle) * cr;
+            g.drawLine (x, cc.y, x, cc.y + h + R * 0.3f, juce::jmax (1.4f, R * 0.07f));
+        }
+    }
+    // oscurecer el borde inferior del cuerpo
+    {
+        juce::ColourGradient dg (juce::Colours::transparentBlack, 0.0f, botY - R * 0.1f,
+                                 juce::Colours::black.withAlpha (0.55f), 0.0f, botY + cr * 0.55f, false);
+        juce::Graphics::ScopedSaveState ss (g);
+        juce::Path lower;
+        lower.addEllipse (cc.x - cr, botY - cr, cr * 2.0f, cr * 2.0f);
+        g.reduceClipRegion (juce::Rectangle<int> ((int) (cc.x - cr) - 1, (int) botY, (int) (cr * 2.0f) + 2, (int) (cr + 2.0f)));
+        g.setGradientFill (dg);
+        g.fillPath (lower);
+    }
 
-    // indicador: linea blanca fina del centro al borde
-    const float pw = juce::jmax (1.8f, R * 0.075f);
-    juce::Path ptr;
-    ptr.addRoundedRectangle (-pw * 0.5f, -cr * 0.96f, pw, cr * 0.96f, pw * 0.4f);
-    const auto xf = juce::AffineTransform::rotation (angle).translated (c);
+    // aro plateado de la tapa
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xfff2f3f4), cc.x - cr, cc.y - cr,
+                                             juce::Colour (0xff8d9094), cc.x + cr, cc.y + cr, false));
+    g.fillEllipse (cc.x - cr, cc.y - cr, cr * 2.0f, cr * 2.0f);
+
+    // tapa mate plana
+    const float fr = cr * 0.92f;
+    const juce::Colour top = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.08f : 0.10f);
+    const juce::Colour bot = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.20f : 0.12f);
+    g.setGradientFill (juce::ColourGradient (top, cc.x, cc.y - fr, bot, cc.x, cc.y + fr, false));
+    g.fillEllipse (cc.x - fr, cc.y - fr, fr * 2.0f, fr * 2.0f);
     g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.drawEllipse (cc.x - fr, cc.y - fr, fr * 2.0f, fr * 2.0f, 0.8f);
+
+    // indicador: barra plana gruesa, del centro al borde
+    const float pw = juce::jmax (2.6f, R * 0.13f);
+    juce::Path ptr;
+    ptr.addRectangle (-pw * 0.5f, -fr * 0.97f, pw, fr * 0.97f - fr * 0.10f);
+    const auto xf = juce::AffineTransform::rotation (angle).translated (cc);
+    g.setColour (juce::Colours::black.withAlpha (0.30f));
     g.fillPath (ptr, xf.translated (0.0f, R * 0.03f));
-    g.setColour (coloured ? juce::Colour (0xfff4f4f6) : juce::Colour (0xff15161a));
+    g.setColour (coloured ? juce::Colour (0xfff2f2f2) : juce::Colour (0xff111214));
     g.fillPath (ptr, xf);
 }
 
@@ -769,6 +816,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.4", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v2.5", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
