@@ -281,7 +281,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
     addKnob ("hmfq", "", "Q", green, 1.5, qMarks);
     addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
-    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.8" } });
+    addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
     addKnob ("lmfq", "", "Q", blue, 1.5, qMarks);
     addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
     addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
@@ -435,14 +435,14 @@ void Dark4kAudioProcessorEditor::resized()
 
     // Izquierda: filtros + EQ
     btn ("filtin", 172, 16, 62, 30);
-    place ("hpf", 76, 72, 27);  place ("lpf", 176, 114, 27);
-    btn ("hfbell", 172, 186, 62, 28);
-    place ("hfg", 74, 232, 21); place ("hff", 176, 268, 21);
-    place ("hmfg", 74, 366, 21); place ("hmff", 176, 402, 21); place ("hmfq", 92, 460, 21);
-    btn ("eqin", 108, 516, 64, 30);
-    place ("lmfg", 74, 610, 21); place ("lmff", 176, 646, 21); place ("lmfq", 92, 702, 21);
-    place ("lff", 176, 790, 21); place ("lfg", 74, 824, 21);
-    btn ("lfbell", 176, 838, 60, 24);
+    place ("hpf", 76, 80, 27);  place ("lpf", 176, 124, 27);
+    btn ("hfbell", 172, 196, 62, 28);
+    place ("hfg", 74, 244, 21); place ("hff", 176, 282, 21);
+    place ("hmfg", 74, 384, 21); place ("hmff", 176, 422, 21); place ("hmfq", 74, 478, 21);
+    btn ("eqin", 108, 530, 64, 30);
+    place ("lmfg", 74, 616, 21); place ("lmff", 176, 652, 21); place ("lmfq", 74, 708, 21);
+    place ("lff", 176, 798, 21); place ("lfg", 74, 826, 21);
+    btn ("lfbell", 176, 840, 60, 22);
 
     // Centro
     btn ("bypass", 266, 14, 58, 32);
@@ -454,13 +454,13 @@ void Dark4kAudioProcessorEditor::resized()
     outMeterBox = { 609.0f, 100.0f, 90.0f, 744.0f };
 
     // Derecha: Dark VCA + puerta
-    place ("threshold", 778, 152, 30);
-    place ("attack", 906, 156, 28);
-    btnAuto.setBounds (868, 252, 70, 34);
-    btn ("dynin", 800, 318, 62, 34);
-    place ("gatethr", 784, 450, 30);
-    place ("gaterange", 898, 450, 28);
-    ladderBox = { 781.0f, 576.0f, 108.0f, 94.0f };
+    place ("threshold", 796, 190, 36);
+    btnAuto.setBounds (872, 96, 70, 34);
+    place ("attack", 884, 318, 32);
+    btn ("dynin", 800, 412, 62, 34);
+    place ("gatethr", 880, 512, 30);
+    place ("gaterange", 776, 592, 28);
+    ladderBox = { 836.0f, 618.0f, 108.0f, 94.0f };
     eqScreen = { 724.0f, 764.0f, 222.0f, 84.0f };
 }
 
@@ -729,16 +729,16 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     };
 
     // ---- Izquierda ----
-    label ("FILTERS", 14.0f, 162.0f);
-    groove (176.0f, 10.0f, 240.0f);
-    label ("HF", 14.0f, 288.0f);
-    bracket (326.0f, 10.0f, 240.0f, 0.0f);
-    label ("HMF", 14.0f, 428.0f);
-    groove (500.0f, 10.0f, 240.0f);
-    label ("EQ", 14.0f, 531.0f);
-    groove (560.0f, 10.0f, 240.0f);
-    label ("LMF", 14.0f, 674.0f);
-    bracket (748.0f, 10.0f, 240.0f, 12.0f);
+    label ("FILTERS", 14.0f, 176.0f);
+    groove (190.0f, 10.0f, 240.0f);
+    label ("HF", 14.0f, 300.0f);
+    bracket (338.0f, 10.0f, 240.0f, 0.0f);
+    label ("HMF", 14.0f, 444.0f);
+    groove (522.0f, 10.0f, 240.0f);
+    label ("EQ", 14.0f, 545.0f);
+    groove (570.0f, 10.0f, 240.0f);
+    label ("LMF", 14.0f, 680.0f);
+    bracket (762.0f, 10.0f, 240.0f, 16.0f);
     label ("LF", 14.0f, 806.0f);
 
     // ---- Derecha ----
@@ -754,11 +754,9 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
         g.drawText ("GR", juce::Rectangle<float> (934.0f, 12.0f, 24.0f, 30.0f), juce::Justification::centred, false);
     }
     groove (56.0f, 722.0f, 948.0f);
-    label ("RELEASE", 726.0f, 269.0f, 14.0f);
-    groove (306.0f, 722.0f, 948.0f);
-    label ("DYN", 726.0f, 335.0f, 16.0f);
-    label ("GATE", 726.0f, 384.0f);
-    groove (540.0f, 722.0f, 948.0f);
+    groove (390.0f, 722.0f, 948.0f);
+    label ("DYN", 726.0f, 429.0f, 16.0f);
+    label ("GATE", 726.0f, 470.0f);
     drawLadder (g, ladderBox);
 
     {
@@ -818,6 +816,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.8", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v2.9", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
