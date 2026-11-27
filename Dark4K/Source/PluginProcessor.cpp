@@ -193,13 +193,13 @@ void Dark4kAudioProcessor::updateFilters()
         if (prm[pHfBell]->load() > 0.5f) hf.peak (sr, f, vo.bellGain (gHf), vo.bellQFixed());
         else                              hf.highShelf (sr, vo.hfShelfFreq (f), vo.shelfGain (gHf), vo.shelfQHf());
     }
-    if (hmfOn) { const double q = prm[pHmfQ]->load(); hmf.peak (sr, prm[pHmfF]->load() * v.eqFreq[1], vo.midGain (gHm, q), vo.bellQ (q)); }
-    if (lmfOn) { const double q = prm[pLmfQ]->load(); lmf.peak (sr, prm[pLmfF]->load() * v.eqFreq[2], vo.midGain (gLm, q), vo.bellQ (q)); }
+    if (hmfOn) { const double q = prm[pHmfQ]->load(); hmf.peak (sr, vo.hmfFreq (prm[pHmfF]->load() * v.eqFreq[1]), vo.midGain (gHm, q), vo.bellQ (q)); }
+    if (lmfOn) { const double q = prm[pLmfQ]->load(); lmf.peak (sr, vo.lmfFreq (prm[pLmfF]->load() * v.eqFreq[2]), vo.midGain (gLm, q), vo.bellQ (q)); }
     if (lfOn)
     {
         const double f = prm[pLfF]->load() * v.eqFreq[3];
         if (prm[pLfBell]->load() > 0.5f) lf.peak (sr, f, vo.bellGain (gLf), vo.bellQFixed());
-        else                              lf.lowShelf (sr, f, vo.shelfGain (gLf), vo.shelfQLf());
+        else                              lf.lowShelf (sr, vo.lfShelfFreq (f), vo.shelfGain (gLf), vo.shelfQLf());
     }
 }
 

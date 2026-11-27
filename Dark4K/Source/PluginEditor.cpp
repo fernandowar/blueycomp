@@ -555,10 +555,10 @@ void Dark4kAudioProcessorEditor::drawEqScreen (juce::Graphics& g, juce::Rectangl
     const float gHf = v ("hfg"), gHm = v ("hmfg"), gLm = v ("lmfg"), gLf = v ("lfg");
     if (v ("hfbell") > 0.5f) hf.peak (sr, v ("hff"), vo.bellGain (gHf), vo.bellQFixed());
     else                      hf.highShelf (sr, vo.hfShelfFreq (v ("hff")), vo.shelfGain (gHf), vo.shelfQHf());
-    hmf.peak (sr, v ("hmff"), vo.midGain (gHm, v ("hmfq")), vo.bellQ (v ("hmfq")));
-    lmf.peak (sr, v ("lmff"), vo.midGain (gLm, v ("lmfq")), vo.bellQ (v ("lmfq")));
+    hmf.peak (sr, vo.hmfFreq (v ("hmff")), vo.midGain (gHm, v ("hmfq")), vo.bellQ (v ("hmfq")));
+    lmf.peak (sr, vo.lmfFreq (v ("lmff")), vo.midGain (gLm, v ("lmfq")), vo.bellQ (v ("lmfq")));
     if (v ("lfbell") > 0.5f) lf.peak (sr, v ("lff"), vo.bellGain (gLf), vo.bellQFixed());
-    else                      lf.lowShelf (sr, v ("lff"), vo.shelfGain (gLf), vo.shelfQLf());
+    else                      lf.lowShelf (sr, vo.lfShelfFreq (v ("lff")), vo.shelfGain (gLf), vo.shelfQLf());
     const bool hpOn = v ("hpf") > 16.5f, lpOn = v ("lpf") < 21900.0f;
     if (hpOn) hp.highPass2 (sr, v ("hpf"), 0.707);
     if (lpOn) lp.lowPass2 (sr, v ("lpf"), 0.707);

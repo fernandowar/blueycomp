@@ -92,7 +92,10 @@ struct EqVoicing
     double shelfQHf() const { return 0.42; }
     double shelfQLf() const { return 0.45; }
     double shelfQ() const { return 0.42; }
-    static double hfShelfFreq (double knobHz) { return knobHz * 0.25; }
+    static double hfShelfFreq (double knobHz) { return knobHz * 0.26; }   // 8k -> ~2.07k
+    static double lfShelfFreq (double knobHz) { return knobHz * 2.45; }   // 60 Hz -> ~147 Hz
+    static double hmfFreq (double knobHz) { return knobHz * 1.334; }      // 3.5k -> ~4.67k
+    static double lmfFreq (double knobHz) { return knobHz * 0.806; }      // 500 -> ~403 Hz
     static double shelfGain (double g) { return g * 1.1; }
     static double bellGain (double g) { return g * 1.2; }
     static double midGain (double g, double q) { return g * (1.0 + 0.2 * (std::clamp (q, 0.1, 3.5) - 0.1) / 3.4); }
