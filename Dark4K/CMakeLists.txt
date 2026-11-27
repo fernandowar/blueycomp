@@ -5,7 +5,7 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "" FORCE)
 endif()
 
-project(Dark4K VERSION 3.1.0)
+project(Dark4K VERSION 3.2.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,7 +47,9 @@ juce_add_binary_data(Dark4kFonts
     SOURCES
         Fonts/Michroma.ttf
         Fonts/BarlowSemiBold.ttf
-        Fonts/BarlowMedium.ttf)
+        Fonts/BarlowMedium.ttf
+        Fonts/LiberationSans-Regular.ttf
+        Fonts/LiberationSans-Bold.ttf)
 
 target_sources(Dark4K PRIVATE
     Source/PluginProcessor.cpp
