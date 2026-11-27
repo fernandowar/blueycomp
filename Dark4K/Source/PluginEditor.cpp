@@ -233,7 +233,7 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
 {
     using M = std::vector<std::pair<double, juce::String>>;
     const M gainMarks { { -15, "-15" }, { -10, "" }, { -5, "-5" }, { 0, "0" }, { 5, "5" }, { 10, "" }, { 15, "15" } };
-    const M qMarks { { 0.5, ".5" }, { 0.8, "" }, { 1.2, "1" }, { 2.0, "2" }, { 3.0, "3" } };
+    const M qMarks { { 0.1, ".1" }, { 0.5, "" }, { 1.0, "1" }, { 2.0, "2" }, { 3.5, "3.5" } };
 
     addKnob ("hpf", "", "Hz", white, 16.0, { { 16, "OUT" }, { 50, "50" }, { 100, "100" }, { 200, "200" }, { 350, "350" } });
     addKnob ("lpf", "", "kHz", white, 22000.0, { { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 22000, "OUT" } });
@@ -241,10 +241,10 @@ Dark4kAudioProcessorEditor::Dark4kAudioProcessorEditor (Dark4kAudioProcessor& p)
     addKnob ("hff", "", "kHz", red, 8000.0, { { 1500, "1.5" }, { 3000, "3" }, { 5000, "5" }, { 8000, "8" }, { 12000, "12" }, { 16000, "16" } });
     addKnob ("hmfg", "", "dB", green, 0.0, gainMarks);
     addKnob ("hmff", "", "kHz", green, 3000.0, { { 600, ".6" }, { 1000, "1" }, { 2000, "2" }, { 4000, "4" }, { 7000, "7" } });
-    addKnob ("hmfq", "", "Q", green, 1.2, qMarks);
+    addKnob ("hmfq", "", "Q", green, 1.0, qMarks);
     addKnob ("lmfg", "", "dB", blue, 0.0, gainMarks);
     addKnob ("lmff", "", "kHz", blue, 800.0, { { 200, ".2" }, { 400, ".4" }, { 800, ".8" }, { 1500, "1.5" }, { 2500, "2.5" } });
-    addKnob ("lmfq", "", "Q", blue, 1.2, qMarks);
+    addKnob ("lmfq", "", "Q", blue, 1.0, qMarks);
     addKnob ("lfg", "", "dB", brown, 0.0, gainMarks);
     addKnob ("lff", "", "Hz", brown, 100.0, { { 30, "30" }, { 60, "60" }, { 100, "100" }, { 200, "200" }, { 450, "450" } });
     addKnob ("intrim", "IN TRIM", "dB", white, 0.0, { { -20, "-20" }, { -10, "" }, { 0, "0" }, { 10, "" }, { 20, "+20" } });
@@ -553,10 +553,12 @@ void Dark4kAudioProcessorEditor::drawEqScreen (juce::Graphics& g, juce::Rectangl
     d4k::Biquad hf, hmf, lmf, lf, hp, lp;
     const bool eqOn = v ("eqin") > 0.5f, fOn = v ("filtin") > 0.5f;
     const float gHf = v ("hfg"), gHm = v ("hmfg"), gLm = v ("lmfg"), gLf = v ("lfg");
-    if (v ("hfbell") > 0.5f) hf.peak (sr, v ("hff"), gHf, vo.bellQ (1.0, gHf)); else hf.highShelf (sr, v ("hff"), gHf, vo.shelfQ());
-    hmf.peak (sr, v ("hmff"), gHm, vo.bellQ (v ("hmfq"), gHm));
-    lmf.peak (sr, v ("lmff"), gLm, vo.bellQ (v ("lmfq"), gLm));
-    if (v ("lfbell") > 0.5f) lf.peak (sr, v ("lff"), gLf, vo.bellQ (1.0, gLf)); else lf.lowShelf (sr, v ("lff"), gLf, vo.shelfQ());
+    if (v ("hfbell") > 0.5f) hf.peak (sr, v ("hff"), vo.bellGain (gHf), vo.bellQFixed());
+    else                      hf.highShelf (sr, vo.hfShelfFreq (v ("hff")), vo.shelfGain (gHf), vo.shelfQHf());
+    hmf.peak (sr, v ("hmff"), vo.midGain (gHm, v ("hmfq")), vo.bellQ (v ("hmfq")));
+    lmf.peak (sr, v ("lmff"), vo.midGain (gLm, v ("lmfq")), vo.bellQ (v ("lmfq")));
+    if (v ("lfbell") > 0.5f) lf.peak (sr, v ("lff"), vo.bellGain (gLf), vo.bellQFixed());
+    else                      lf.lowShelf (sr, v ("lff"), vo.shelfGain (gLf), vo.shelfQLf());
     const bool hpOn = v ("hpf") > 16.5f, lpOn = v ("lpf") < 21900.0f;
     if (hpOn) hp.highPass2 (sr, v ("hpf"), 0.707);
     if (lpOn) lp.lowPass2 (sr, v ("lpf"), 0.707);

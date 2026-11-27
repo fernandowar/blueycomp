@@ -80,15 +80,21 @@ struct Biquad
 };
 
 // Características de los dos "colores" de EQ del 4000: Brown (02) y Black (242)
+// Voicing medido sobre curvas de referencia SSL 4000 E (Black):
+//  - Shelf de agudos: el "8 kHz" de la perilla corresponde a un punto de media ganancia cerca de 2 kHz.
+//  - Rangos de ganancia: shelf +-16.5 dB, campana LF/HF +-18 dB, HMF/LMF de +-15 (Q 0.1) a +-18 dB (Q 3.5).
 struct EqVoicing
 {
-    bool black = false;
-    // Q efectivo de campana: Brown se estrecha con la ganancia (Q proporcional), Black casi constante
-    double bellQ (double q, double gainDb) const
-    {
-        const double g = std::min (1.0, std::abs (gainDb) / 15.0);
-        return black ? q * (0.92 + 0.16 * g) : q * (0.72 + 0.62 * g);
-    }
-    double shelfQ() const { return black ? 0.78 : 0.62; }
+    bool black = true;
+    static double qMap (double q) { return 0.55 * std::pow (1.03 / 0.55, (std::clamp (q, 0.1, 3.5) - 0.1) / 3.4); }
+    double bellQ (double q, double = 0.0) const { return qMap (q); }
+    double bellQFixed() const { return 0.84; }
+    double shelfQHf() const { return 0.42; }
+    double shelfQLf() const { return 0.45; }
+    double shelfQ() const { return 0.42; }
+    static double hfShelfFreq (double knobHz) { return knobHz * 0.25; }
+    static double shelfGain (double g) { return g * 1.1; }
+    static double bellGain (double g) { return g * 1.2; }
+    static double midGain (double g, double q) { return g * (1.0 + 0.2 * (std::clamp (q, 0.1, 3.5) - 0.1) / 3.4); }
 };
 } // namespace d4k

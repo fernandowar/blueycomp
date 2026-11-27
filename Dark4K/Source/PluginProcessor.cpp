@@ -25,7 +25,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     auto db = [&] (const char* id, const char* name, float lo, float hi, float def)
     { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float> (lo, hi, 0.1f), def, Attr().withLabel ("dB"))); };
     auto hz = [&] (const char* id, const char* name, float lo, float hi, float def)
-    { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, logRange (lo, hi), def, Attr().withLabel ("Hz"))); };
+    { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, logRange (lo, hi, 1.0f), def, Attr().withLabel ("Hz").withStringFromValueFunction ([] (float x, int) { return juce::String ((int) std::lround (x)); }))); };
     auto sw = [&] (const char* id, const char* name, bool def)
     { l.add (std::make_unique<B> (juce::ParameterID { id, 1 }, name, def)); };
 
@@ -51,10 +51,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     sw ("hfbell", "HF Bell", false);
     db ("hmfg", "HMF Gain", -15.0f, 15.0f, 0.0f);
     hz ("hmff", "HMF Freq", 600.0f, 7000.0f, 3000.0f);
-    l.add (std::make_unique<F> (juce::ParameterID { "hmfq", 1 }, "HMF Q", logRange (0.5f, 3.0f), 1.2f));
+    l.add (std::make_unique<F> (juce::ParameterID { "hmfq", 1 }, "HMF Q", logRange (0.1f, 3.5f, 0.01f), 1.0f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lmfg", "LMF Gain", -15.0f, 15.0f, 0.0f);
     hz ("lmff", "LMF Freq", 200.0f, 2500.0f, 800.0f);
-    l.add (std::make_unique<F> (juce::ParameterID { "lmfq", 1 }, "LMF Q", logRange (0.5f, 3.0f), 1.2f));
+    l.add (std::make_unique<F> (juce::ParameterID { "lmfq", 1 }, "LMF Q", logRange (0.1f, 3.5f, 0.01f), 1.0f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lfg", "LF Gain", -15.0f, 15.0f, 0.0f);
     hz ("lff", "LF Freq", 30.0f, 450.0f, 100.0f);
     sw ("lfbell", "LF Bell", false);
@@ -181,7 +181,6 @@ void Dark4kAudioProcessor::updateFilters()
     const float gHm = prm[pHmfG]->load() + (prm[pHmfG]->load() != 0.0f ? v.eqGain[1] : 0.0f);
     const float gLm = prm[pLmfG]->load() + (prm[pLmfG]->load() != 0.0f ? v.eqGain[2] : 0.0f);
     float gLf = prm[pLfG]->load() + (prm[pLfG]->load() != 0.0f ? v.eqGain[3] : 0.0f);
-    if (vo.black && gLf > 0.0f) gLf += 0.04f * gLf; // Black: algo más de peso en graves
 
     hfOn = std::abs (prm[pHfG]->load()) > 0.05f;
     hmfOn = std::abs (prm[pHmfG]->load()) > 0.05f;
@@ -191,16 +190,16 @@ void Dark4kAudioProcessor::updateFilters()
     if (hfOn)
     {
         const double f = prm[pHfF]->load() * v.eqFreq[0];
-        if (prm[pHfBell]->load() > 0.5f) hf.peak (sr, f, gHf, vo.bellQ (1.0, gHf));
-        else                              hf.highShelf (sr, f, gHf, vo.shelfQ());
+        if (prm[pHfBell]->load() > 0.5f) hf.peak (sr, f, vo.bellGain (gHf), vo.bellQFixed());
+        else                              hf.highShelf (sr, vo.hfShelfFreq (f), vo.shelfGain (gHf), vo.shelfQHf());
     }
-    if (hmfOn) hmf.peak (sr, prm[pHmfF]->load() * v.eqFreq[1], gHm, vo.bellQ (prm[pHmfQ]->load(), gHm));
-    if (lmfOn) lmf.peak (sr, prm[pLmfF]->load() * v.eqFreq[2], gLm, vo.bellQ (prm[pLmfQ]->load(), gLm));
+    if (hmfOn) { const double q = prm[pHmfQ]->load(); hmf.peak (sr, prm[pHmfF]->load() * v.eqFreq[1], vo.midGain (gHm, q), vo.bellQ (q)); }
+    if (lmfOn) { const double q = prm[pLmfQ]->load(); lmf.peak (sr, prm[pLmfF]->load() * v.eqFreq[2], vo.midGain (gLm, q), vo.bellQ (q)); }
     if (lfOn)
     {
         const double f = prm[pLfF]->load() * v.eqFreq[3];
-        if (prm[pLfBell]->load() > 0.5f) lf.peak (sr, f, gLf, vo.bellQ (1.0, gLf));
-        else                              lf.lowShelf (sr, f, gLf, vo.shelfQ());
+        if (prm[pLfBell]->load() > 0.5f) lf.peak (sr, f, vo.bellGain (gLf), vo.bellQFixed());
+        else                              lf.lowShelf (sr, f, vo.shelfGain (gLf), vo.shelfQLf());
     }
 }
 
