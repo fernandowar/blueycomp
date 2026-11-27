@@ -18,7 +18,7 @@ namespace D4kColours
     static const juce::Colour red    { 0xffb5252b };
     static const juce::Colour green  { 0xff2f7d4a };
     static const juce::Colour blue   { 0xff2f6fb5 };
-    static const juce::Colour brown  { 0xff7a4c3a };
+    static const juce::Colour brown  { 0xff1b1c20 };
     static const juce::Colour white  { 0xffd9dadd };
     static const juce::Colour silver { 0xff9fa2a9 };
 }
