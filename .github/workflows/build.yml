@@ -20,6 +20,8 @@ jobs:
           - { os: macos-latest,   name: macOS,   project: DarkLimiter, product: "Dark Limiter", slug: dark-limiter }
           - { os: windows-latest, name: Windows, project: DarkLevel, product: "Dark Level", slug: dark-level }
           - { os: macos-latest,   name: macOS,   project: DarkLevel, product: "Dark Level", slug: dark-level }
+          - { os: windows-latest, name: Windows, project: Dark4K, product: "Dark 4K", slug: dark-4k }
+          - { os: macos-latest,   name: macOS,   project: Dark4K, product: "Dark 4K", slug: dark-4k }
           - { os: windows-latest, name: Windows, project: DarkTransformer, product: "Dark Transformer", slug: dark-transformer }
           - { os: macos-latest,   name: macOS,   project: DarkTransformer, product: "Dark Transformer", slug: dark-transformer }
 
@@ -131,7 +133,7 @@ jobs:
           for f in payloads/payload-*-macOS.tgz; do tar -xzf "$f" -C pkgroot; done
           cat > scripts/postinstall <<'EOF'
           #!/bin/bash
-          for N in "Bluey Comp" "Dark VCA" "Dark Limiter" "Dark Level" "Dark Transformer"; do
+          for N in "Bluey Comp" "Dark VCA" "Dark Limiter" "Dark Level" "Dark 4K" "Dark Transformer"; do
             for P in "/Library/Audio/Plug-Ins/VST3/$N.vst3" "/Library/Audio/Plug-Ins/Components/$N.component"; do
               [ -e "$P" ] || continue
               xattr -cr "$P"
