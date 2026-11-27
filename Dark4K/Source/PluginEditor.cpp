@@ -45,58 +45,96 @@ void D4kLookAndFeel::paintKnob (juce::Graphics& g, juce::Point<float> c, float R
     const float pi = juce::MathConstants<float>::pi;
     const float angle = startAngle + proportion * (endAngle - startAngle);
     const bool coloured = capCol != silver && capCol != white;
+    const float lightA = -0.75f * pi;                 // luz desde arriba-izquierda
+    auto lit = [&] (float a) { return 0.5f + 0.5f * std::cos (a - (lightA + 0.5f * pi)); };
 
+    // ---- sombras sobre la chapa: ambiente amplia + contacto ----
     juce::Path body;
     body.addEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.7f), (int) (R * 0.55f), { 0, (int) (R * 0.18f) }).drawForPath (g, body);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.55f), (int) (R * 0.75f), { (int) (R * 0.12f), (int) (R * 0.32f) }).drawForPath (g, body);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.90f), (int) (R * 0.18f), { (int) (R * 0.05f), (int) (R * 0.10f) }).drawForPath (g, body);
 
-    // aro metalico facetado (segmentos con luz desde arriba-izquierda)
-    g.setColour (juce::Colour (0xff1d1e22));
-    g.fillEllipse (c.x - R - 0.8f, c.y - R - 0.8f, R * 2.0f + 1.6f, R * 2.0f + 1.6f);
-    const int segs = 20;
-    for (int i = 0; i < segs; ++i)
+    // ---- pared lateral moleteada ----
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff5d6168), c.x - R * 0.8f, c.y - R * 0.8f,
+                                             juce::Colour (0xff0d0e11), c.x + R * 0.8f, c.y + R * 0.9f, false));
+    g.fillEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
+    const int teeth = juce::jlimit (36, 72, (int) (R * 2.2f));
+    const float r0 = R * 0.80f;
+    for (int i = 0; i < teeth; ++i)
     {
-        const float a0 = (float) i * 2.0f * pi / (float) segs, a1 = a0 + 2.0f * pi / (float) segs;
-        const float am = 0.5f * (a0 + a1);
-        const float lit = 0.5f + 0.5f * std::cos (am - 5.5f);
-        const float facet = (i % 2 == 0) ? 0.0f : -0.10f;
-        juce::Path seg;
-        seg.addPieSegment (c.x - R, c.y - R, R * 2.0f, R * 2.0f, a0, a1, 0.71f);
-        g.setColour (juce::Colour (0xff80838b).interpolatedWith (juce::Colour (0xfff0f1f3), juce::jlimit (0.0f, 1.0f, lit + facet)));
-        g.fillPath (seg);
+        const float a = (float) i * 2.0f * pi / (float) teeth;
+        const float da = pi / (float) teeth;
+        const float l1 = lit (a), l2 = lit (a + da);
+        const auto p1 = polar (c, a, r0), p2 = polar (c, a, R * 0.995f);
+        g.setColour (juce::Colour (0xff202227).interpolatedWith (juce::Colour (0xffe4e6ea), 0.15f + 0.85f * l1));
+        g.drawLine (p1.x, p1.y, p2.x, p2.y, juce::jmax (1.0f, R * 0.045f));
+        const auto q1 = polar (c, a + da * 0.95f, r0), q2 = polar (c, a + da * 0.95f, R * 0.995f);
+        g.setColour (juce::Colours::black.withAlpha (0.35f + 0.4f * (1.0f - l2)));
+        g.drawLine (q1.x, q1.y, q2.x, q2.y, juce::jmax (0.8f, R * 0.03f));
     }
-    g.setColour (juce::Colour (0xff3a3c42).withAlpha (0.6f));
-    g.drawEllipse (c.x - R * 0.85f, c.y - R * 0.85f, R * 1.70f, R * 1.70f, 0.8f);
+    // aro exterior fino
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.55f), c.x - R * 0.7f, c.y - R * 0.7f,
+                                             juce::Colours::black.withAlpha (0.6f), c.x + R * 0.7f, c.y + R * 0.7f, false));
+    g.drawEllipse (c.x - R + 0.5f, c.y - R + 0.5f, R * 2.0f - 1.0f, R * 2.0f - 1.0f, 1.0f);
 
-    // muesca oscura del aro, en la posicion del indicador
+    // ---- chaflan entre pared y cara superior ----
+    const float rc = R * 0.80f;
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xfff3f4f6), c.x - rc * 0.7f, c.y - rc * 0.7f,
+                                             juce::Colour (0xff23252a), c.x + rc * 0.7f, c.y + rc * 0.7f, false));
+    g.fillEllipse (c.x - rc, c.y - rc, rc * 2.0f, rc * 2.0f);
+
+    // ---- cara superior (anodizada, ligeramente convexa) ----
+    const float cr = R * 0.73f;
+    const juce::Colour hi = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.34f : 0.40f);
+    const juce::Colour mid = capCol;
+    const juce::Colour lo = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.50f : 0.42f);
     {
-        juce::Path notch;
-        const float nw = R * 0.16f, nh = R * 0.11f;
-        notch.addRectangle (-nw * 0.5f, -R * 0.96f, nw, nh);
-        g.setColour (juce::Colour (0xff1c1d21));
-        g.fillPath (notch, juce::AffineTransform::rotation (angle).translated (c));
+        juce::ColourGradient cg (hi, c.x - cr * 0.38f, c.y - cr * 0.45f, lo, c.x + cr * 0.95f, c.y + cr * 1.05f, true);
+        cg.addColour (0.38, mid);
+        g.setGradientFill (cg);
+        g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
     }
+    // vetas concentricas del mecanizado
+    for (int k = 1; k < 9; ++k)
+    {
+        const float rr = cr * (float) k / 9.0f;
+        g.setColour ((k % 2 ? juce::Colours::white : juce::Colours::black).withAlpha (0.045f));
+        g.drawEllipse (c.x - rr, c.y - rr, rr * 2.0f, rr * 2.0f, 0.8f);
+    }
+    // oscurecimiento del borde (cara convexa)
+    {
+        juce::ColourGradient eg (juce::Colours::transparentBlack, c.x, c.y, juce::Colours::black.withAlpha (0.38f), c.x, c.y - cr, true);
+        eg.addColour (0.80, juce::Colours::transparentBlack);
+        g.setGradientFill (eg);
+        g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
+    }
+    // reflejo especular suave
+    {
+        const juce::Point<float> sp (c.x - cr * 0.36f, c.y - cr * 0.46f);
+        juce::ColourGradient sg (juce::Colours::white.withAlpha (coloured ? 0.34f : 0.42f), sp.x, sp.y,
+                                 juce::Colours::transparentWhite, sp.x + cr * 0.62f, sp.y + cr * 0.40f, true);
+        g.setGradientFill (sg);
+        g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
+    }
+    // filo luminoso arriba-izquierda y sombra abajo-derecha
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.55f), c.x - cr * 0.7f, c.y - cr * 0.7f,
+                                             juce::Colours::black.withAlpha (0.55f), c.x + cr * 0.7f, c.y + cr * 0.7f, false));
+    g.drawEllipse (c.x - cr + 0.6f, c.y - cr + 0.6f, cr * 2.0f - 1.2f, cr * 2.0f - 1.2f, 1.1f);
 
-    // tapa plana de color
-    const float cr = R * 0.71f;
-    g.setColour (juce::Colour (0xff17181b));
-    g.fillEllipse (c.x - cr - 1.6f, c.y - cr - 1.6f, (cr + 1.6f) * 2.0f, (cr + 1.6f) * 2.0f);
-    const juce::Colour top = capCol.interpolatedWith (juce::Colours::white, coloured ? 0.10f : 0.22f);
-    const juce::Colour bot = capCol.interpolatedWith (juce::Colours::black, coloured ? 0.16f : 0.18f);
-    g.setGradientFill (juce::ColourGradient (top, c.x, c.y - cr, bot, c.x, c.y + cr, false));
-    g.fillEllipse (c.x - cr, c.y - cr, cr * 2.0f, cr * 2.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.16f));
-    g.drawEllipse (c.x - cr + 1.0f, c.y - cr + 1.0f, cr * 2.0f - 2.0f, cr * 2.0f - 2.0f, 1.0f);
-
-    // indicador: barra blanca (oscura en tapas claras)
-    const float pw = juce::jmax (3.0f, R * 0.12f);
+    // ---- indicador: linea pintada con leve relieve ----
+    const float pw = juce::jmax (2.8f, R * 0.105f);
     juce::Path ptr;
-    ptr.addRectangle (-pw * 0.5f, -cr * 0.94f, pw, cr * 0.94f);
+    ptr.addRoundedRectangle (-pw * 0.5f, -cr * 0.93f, pw, cr * 0.93f, pw * 0.25f);
     const auto xf = juce::AffineTransform::rotation (angle).translated (c);
-    g.setColour (juce::Colours::black.withAlpha (0.25f));
-    g.fillPath (ptr, xf.translated (0.0f, 0.9f));
-    g.setColour (coloured ? juce::Colour (0xfff7f7f9) : juce::Colour (0xff1a1b1f));
+    g.setColour (juce::Colours::black.withAlpha (0.40f));
+    g.fillPath (ptr, xf.translated (R * 0.025f, R * 0.045f));
+    g.setColour (coloured ? juce::Colour (0xfff8f8fa) : juce::Colour (0xff17181c));
     g.fillPath (ptr, xf);
+    if (coloured)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.18f));
+        g.strokePath (ptr, juce::PathStrokeType (0.7f), xf);
+    }
 }
 
 void D4kLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -444,7 +482,14 @@ void Dark4kAudioProcessorEditor::timerCallback()
     }
     const float gr = processor.gainReductionDb.load();
     grSmoothed += (gr > grSmoothed ? 0.5f : 0.12f) * (gr - grSmoothed);
-    repaint();
+
+    // repintado parcial: los knobs (costosos) solo se redibujan cuando se mueven
+    repaint (inMeterBox.expanded (6.0f, 50.0f).getSmallestIntegerContainer());
+    repaint (outMeterBox.expanded (6.0f, 50.0f).getSmallestIntegerContainer());
+    repaint (ladderBox.expanded (2.0f).getSmallestIntegerContainer());
+    repaint (juce::Rectangle<int> (856, 8, 100, 38));
+    repaint (eqScreen.expanded (2.0f).getSmallestIntegerContainer());
+    repaint (juce::Rectangle<int> (420, 800, 120, 50));
 }
 
 
@@ -652,7 +697,7 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawImageAt (texture, 0, 0);
 
     // tornillos de rack
-    for (float y : { 14.0f, 450.0f, 850.0f })
+    for (float y : { 14.0f, 604.0f, 850.0f })
     {
         drawScrew (g, { 12.0f, y });
         drawScrew (g, { (float) kW - 12.0f, y });
@@ -772,6 +817,6 @@ void Dark4kAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DARK SHAPE STUDIOS", juce::Rectangle<float> (0.0f, (float) barY, (float) kW, (float) (kH - barY)), juce::Justification::centred, false);
     g.setColour (juce::Colour (0xff5b5f68));
     g.setFont (labelFont (12.0f));
-    g.drawText ("v2.2", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
+    g.drawText ("v2.3", juce::Rectangle<float> (16.0f, (float) barY, 100.0f, (float) (kH - barY)), juce::Justification::centredLeft, false);
     g.drawText ("click CH = nuevo canal", juce::Rectangle<float> ((float) kW - 216.0f, (float) barY, 200.0f, (float) (kH - barY)), juce::Justification::centredRight, false);
 }
