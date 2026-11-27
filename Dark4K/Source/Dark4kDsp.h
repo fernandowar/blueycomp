@@ -110,7 +110,7 @@ struct EqVoicing
     static double bellGain (double g) { return g * 1.2; }
     static double midGain (double g, double label)
     {
-        static const double x[4] { 0.5, 1.5, 2.0, 3.0 }, m[4] { 0.982, 1.02, 1.157, 1.2 };
+        static const double x[4] { 0.5, 1.5, 2.0, 3.0 }, m[4] { 1.0, 1.02, 1.157, 1.2 };
         const double l = std::clamp (label, 0.5, 3.0);
         for (int i = 0; i < 3; ++i)
             if (l <= x[i + 1]) return g * (m[i] + (m[i + 1] - m[i]) * (l - x[i]) / (x[i + 1] - x[i]));
