@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-constexpr float Dark4kAudioProcessor::kAttackMs[6];
+constexpr float Dark4kAudioProcessor::kAttackMs[3];
 
 namespace
 {
@@ -14,6 +14,17 @@ namespace
             [] (float, float, float p) { p = juce::jlimit (0.0f, 1.0f, p); for (int i = 0; i < 4; ++i) if (p <= pos[i + 1]) return val[i] + (val[i + 1] - val[i]) * (p - pos[i]) / (pos[i + 1] - pos[i]); return val[4]; },
             [] (float, float, float v) { v = juce::jlimit (0.5f, 3.0f, v); for (int i = 0; i < 4; ++i) if (v >= val[i + 1]) return pos[i] + (pos[i + 1] - pos[i]) * (v - val[i]) / (val[i + 1] - val[i]); return 1.0f; },
             [] (float, float, float v) { return juce::jlimit (0.5f, 3.0f, std::round (v * 100.0f) / 100.0f); });
+    }
+    // Rango por tramos: las marcas del panel quedan equidistantes (como el SSL)
+    juce::NormalisableRange<float> stopRange (std::vector<float> s)
+    {
+        const int n = (int) s.size() - 1;
+        const float lo = s.front(), hi = s.back();
+        return juce::NormalisableRange<float> (
+            lo, hi,
+            [s, n] (float, float, float pr) { pr = juce::jlimit (0.0f, 1.0f, pr) * (float) n; const int i = juce::jmin (n - 1, (int) pr); return s[(size_t) i] + (pr - (float) i) * (s[(size_t) i + 1] - s[(size_t) i]); },
+            [s, n, lo, hi] (float, float, float v) { v = juce::jlimit (lo, hi, v); int i = 0; while (i < n - 1 && v > s[(size_t) i + 1]) ++i; return ((float) i + (v - s[(size_t) i]) / (s[(size_t) i + 1] - s[(size_t) i])) / (float) n; },
+            [lo, hi] (float, float, float v) { return juce::jlimit (lo, hi, std::round (v)); });
     }
     // Rango logarítmico para frecuencias
     juce::NormalisableRange<float> logRange (float lo, float hi, float step = 0.0f)
@@ -36,6 +47,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float> (lo, hi, 0.1f), def, Attr().withLabel ("dB"))); };
     auto hz = [&] (const char* id, const char* name, float lo, float hi, float def)
     { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, logRange (lo, hi, 1.0f), def, Attr().withLabel ("Hz").withStringFromValueFunction ([] (float x, int) { return juce::String ((int) std::lround (x)); }))); };
+    auto hzs = [&] (const char* id, const char* name, std::vector<float> stops, float def)
+    { l.add (std::make_unique<F> (juce::ParameterID { id, 1 }, name, stopRange (std::vector<float> (stops)), def, Attr().withLabel ("Hz").withStringFromValueFunction ([] (float x, int) { return juce::String ((int) std::lround (x)); }))); };
     auto sw = [&] (const char* id, const char* name, bool def)
     { l.add (std::make_unique<B> (juce::ParameterID { id, 1 }, name, def)); };
 
@@ -74,16 +87,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
     hz ("lpf", "Low Pass", 3000.0f, 22000.0f, 22000.0f);
 
     db ("hfg", "HF Gain", -15.0f, 15.0f, 0.0f);
-    hz ("hff", "HF Freq", 1500.0f, 16000.0f, 8000.0f);
+    hzs ("hff", "HF Freq", { 1500, 2000, 5000, 8000, 10000, 14000, 16000 }, 8000.0f);
     sw ("hfbell", "HF Bell", false);
     db ("hmfg", "HMF Gain", -15.0f, 15.0f, 0.0f);
-    hz ("hmff", "HMF Freq", 600.0f, 7000.0f, 3000.0f);
+    hzs ("hmff", "HMF Freq", { 600, 800, 1500, 3000, 4500, 6000, 7000 }, 3000.0f);
     l.add (std::make_unique<F> (juce::ParameterID { "hmfq", 1 }, "HMF Q", qRange(), 1.5f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lmfg", "LMF Gain", -15.0f, 15.0f, 0.0f);
-    hz ("lmff", "LMF Freq", 200.0f, 2500.0f, 800.0f);
+    hzs ("lmff", "LMF Freq", { 200, 300, 800, 1000, 1500, 2000, 2500 }, 800.0f);
     l.add (std::make_unique<F> (juce::ParameterID { "lmfq", 1 }, "LMF Q", qRange(), 1.5f, Attr().withStringFromValueFunction ([] (float x, int) { return juce::String (x, 1); })));
     db ("lfg", "LF Gain", -15.0f, 15.0f, 0.0f);
-    hz ("lff", "LF Freq", 30.0f, 450.0f, 100.0f);
+    hzs ("lff", "LF Freq", { 30, 50, 100, 200, 300, 400, 450 }, 100.0f);
     sw ("lfbell", "LF Bell", false);
 
     sw ("dynin", "Dyn In", true);
@@ -96,11 +109,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout Dark4kAudioProcessor::create
         [] (float s, float e, float v) { return juce::jlimit (s, e, std::round (v * 10.0f) / 10.0f); });
     l.add (std::make_unique<F> (juce::ParameterID { "threshold", 1 }, "Threshold", thr, 10.0f, Attr().withLabel ("dB")));
     l.add (std::make_unique<C> (juce::ParameterID { "attack", 1 }, "Attack",
-                                juce::StringArray { "0.1 ms", "0.3 ms", "1 ms", "3 ms", "10 ms", "30 ms" }, 3));
-    l.add (std::make_unique<C> (juce::ParameterID { "release", 1 }, "Release", juce::StringArray { "100 ms", "Auto" }, 0));
+                                juce::StringArray { "1 ms (fast)", "10 ms (mid)", "30 ms (slow)" }, 2));
+    l.add (std::make_unique<F> (juce::ParameterID { "release", 1 }, "Release", logRange (0.1f, 1.2f), 0.4f,
+                                Attr().withLabel ("s").withStringFromValueFunction ([] (float x, int) { return juce::String (x, 2); })));
+    {
+        // Ratio SSL: 1, 2, 3, 5, 8, 20, inf (marcas equidistantes)
+        static const float kR[7] = { 1.0f, 2.0f, 3.0f, 5.0f, 8.0f, 20.0f, 100.0f };
+        juce::NormalisableRange<float> r (1.0f, 100.0f,
+            [] (float, float, float pr) { pr = juce::jlimit (0.0f, 1.0f, pr) * 6.0f; const int i = juce::jmin (5, (int) pr); return kR[i] + (pr - (float) i) * (kR[i + 1] - kR[i]); },
+            [] (float, float, float v) { v = juce::jlimit (1.0f, 100.0f, v); int i = 0; while (i < 5 && v > kR[i + 1]) ++i; return ((float) i + (v - kR[i]) / (kR[i + 1] - kR[i])) / 6.0f; },
+            [] (float, float, float v) { return juce::jlimit (1.0f, 100.0f, std::round (v * 10.0f) / 10.0f); });
+        l.add (std::make_unique<F> (juce::ParameterID { "ratio", 1 }, "Ratio", r, 3.0f,
+                                    Attr().withStringFromValueFunction ([] (float x, int) { return x >= 50.0f ? juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x9e")) : juce::String (x, 1) + ":1"; })));
+    }
     db ("makeup", "Makeup", 0.0f, 15.0f, 0.0f);
     db ("gatethr", "Gate Threshold", -70.0f, 0.0f, -70.0f);
     db ("gaterange", "Gate Range", 0.0f, 40.0f, 0.0f);
+    l.add (std::make_unique<F> (juce::ParameterID { "gaterel", 1 }, "Gate Release", logRange (0.1f, 4.0f), 0.2f,
+                                Attr().withLabel ("s").withStringFromValueFunction ([] (float x, int) { return juce::String (x, 2); })));
     return l;
 }
 
@@ -112,16 +138,16 @@ Dark4kAudioProcessor::Dark4kAudioProcessor()
 {
     const char* ids[pCount] = { "intrim", "phase", "level", "bypass", "eqin", "eqblack", "filtin", "hpf", "lpf",
                                 "hfg", "hff", "hfbell", "hmfg", "hmff", "hmfq", "lmfg", "lmff", "lmfq", "lfg", "lff", "lfbell",
-                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange", "cut", "solo" };
+                                "dynin", "threshold", "attack", "release", "makeup", "gatethr", "gaterange", "cut", "solo", "ratio", "gaterel" };
     for (int i = 0; i < pCount; ++i) prm[i] = apvts.getRawParameterValue (ids[i]);
 
     // Cada instancia nueva nace como un canal distinto de la consola
-    setChannel (1 + juce::Random::getSystemRandom().nextInt (999));
+    setChannel (1 + juce::Random::getSystemRandom().nextInt (64));
 }
 
 void Dark4kAudioProcessor::setChannel (int ch)
 {
-    ch = juce::jlimit (1, 999, ch);
+    ch = juce::jlimit (1, 64, ch);
     channel.store (ch);
     apvts.state.setProperty ("channel", ch, nullptr);
 
@@ -144,7 +170,7 @@ void Dark4kAudioProcessor::setChannel (int ch)
 void Dark4kAudioProcessor::rerollChannel()
 {
     int n;
-    do { n = 1 + juce::Random::getSystemRandom().nextInt (999); } while (n == channel.load());
+    do { n = 1 + juce::Random::getSystemRandom().nextInt (64); } while (n == channel.load());
     setChannel (n);
 }
 
@@ -242,8 +268,8 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     varDirty.store (false);
     const Variation v = var;
 
-    const int atkIdx = juce::jlimit (0, 5, (int) std::round (prm[pAtk]->load()));
-    const bool autoRelease = prm[pRel]->load() > 0.5f;
+    const int atkIdx = juce::jlimit (0, 2, (int) std::round (prm[pAtk]->load()));
+    const float relCoeff = 1.0f - std::exp (-1.0f / (juce::jmax (0.05f, prm[pRel]->load()) * (float) sampleRate));
     const float attackCoeff = 1.0f - std::exp (-1.0f / (0.001f * kAttackMs[atkIdx] * v.atk * (float) sampleRate));
     const bool filtersOn = prm[pFiltIn]->load() > 0.5f;
     const bool black = true; // solo EQ Black
@@ -261,9 +287,9 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     eqMix.setTargetValue (prm[pEqIn]->load() > 0.5f ? 1.0f : 0.0f);
     dynMix.setTargetValue (prm[pDynIn]->load() > 0.5f ? 1.0f : 0.0f);
 
-    const float slope = 1.0f - 1.0f / kRatio;
+    const float slope = 1.0f - 1.0f / juce::jmax (1.0f, prm[pRatio]->load());
     const float gateAtk = 1.0f - std::exp (-1.0f / (0.0004f * (float) sampleRate));
-    const float gateRel = 1.0f - std::exp (-1.0f / (0.18f * (float) sampleRate));
+    const float gateRel = 1.0f - std::exp (-1.0f / (juce::jmax (0.05f, prm[pGateRel]->load()) * (float) sampleRate));
     const float lvlDecay = std::exp (-1.0f / (0.005f * (float) sampleRate));
     const float holdSamples = 0.02f * (float) sampleRate;
 
@@ -347,18 +373,9 @@ void Dark4kAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             else if (2.0f * over > -kKneeDb) { const float x = over + kKneeDb * 0.5f; targetGr = slope * x * x / (2.0f * kKneeDb); }
 
             float gr;
-            if (autoRelease)
-            {
-                envFast += (targetGr > envFast ? attackCoeff : relFastCoeff) * (targetGr - envFast);
-                envSlow += (targetGr > envSlow ? atkSlowCoeff : relSlowCoeff) * (targetGr - envSlow);
-                gr = juce::jmax (envFast, envSlow);
-            }
-            else
-            {
-                envFast += (targetGr > envFast ? attackCoeff : relFixedCoeff) * (targetGr - envFast);
-                envSlow = envFast;
-                gr = envFast;
-            }
+            envFast += (targetGr > envFast ? attackCoeff : relCoeff) * (targetGr - envFast);
+            envSlow = envFast;
+            gr = envFast;
             peakGr = juce::jmax (peakGr, gr);
 
             // Saturación del Dark VCA. "Dinámica": el drive sube un poco con la compresión (el VCA

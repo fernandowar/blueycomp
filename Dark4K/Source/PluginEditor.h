@@ -38,7 +38,7 @@ public:
     void drawLinearSlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float minSliderPos, float maxSliderPos,
                            juce::Slider::SliderStyle, juce::Slider&) override;
-    int getSliderThumbRadius (juce::Slider&) override { return faderThumbHalf; }
+    int getSliderThumbRadius (juce::Slider& s) override { return s.isHorizontal() ? 6 : faderThumbHalf; }
 };
 
 class D4kButton : public juce::ToggleButton
@@ -106,8 +106,8 @@ private:
     std::vector<std::unique_ptr<Toggle>> toggles;
     juce::Slider fader;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> faderAtt;
-    juce::ParameterAttachment releaseAtt;
-    D4kButton btnAuto { "AUTO", juce::Colours::transparentBlack, true };
+    D4kButton attackBtn { "MED", juce::Colour(), false };
+    std::unique_ptr<juce::ParameterAttachment> attackAtt;
 
     juce::Image texture;
     float inLvl[2] { -100, -100 }, outLvl[2] { -100, -100 }, inHold[2] { -100, -100 }, outHold[2] { -100, -100 };

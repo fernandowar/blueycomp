@@ -46,11 +46,11 @@ public:
     std::atomic<float> outPeak[2] { { 0.0f }, { 0.0f } };
     std::atomic<float> gainReductionDb { 0.0f };
 
-    // Número de canal (1..999): define las tolerancias de este "canal de consola"
+    // Número de canal (1..64): define las tolerancias de este "canal de consola"
     int getChannel() const { return channel.load(); }
     void rerollChannel();
 
-    static constexpr float kAttackMs[6] = { 0.1f, 0.3f, 1.0f, 3.0f, 10.0f, 30.0f };
+    static constexpr float kAttackMs[3] = { 1.0f, 10.0f, 30.0f };   // rapido / medio / lento
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
@@ -91,7 +91,7 @@ private:
     std::atomic<float>* prm[40] {};
     enum P { pInTrim, pPhase, pLevel, pBypass, pEqIn, pEqBlack, pFiltIn, pHpf, pLpf,
              pHfG, pHfF, pHfBell, pHmfG, pHmfF, pHmfQ, pLmfG, pLmfF, pLmfQ, pLfG, pLfF, pLfBell,
-             pDynIn, pThr, pAtk, pRel, pMakeup, pGateThr, pGateRange, pCut, pSolo, pCount };
+             pDynIn, pThr, pAtk, pRel, pMakeup, pGateThr, pGateRange, pCut, pSolo, pRatio, pGateRel, pCount };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Dark4kAudioProcessor)
 };
